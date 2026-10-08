@@ -43,27 +43,39 @@ class ScorersCard extends StatelessWidget {
     onChanged();
   }
 
-  /// The active squad of the team first; "Search any player" as a way out.
+  /// Only players from the squads this team has in this league: the active
+  /// squad first, then the players of its other squads.
   Future<Player?> _choosePlayer(BuildContext context, Team team) async {
-    List<Player> squadPlayers = [];
+    final players = <Player>[];
+    var failed = false;
     if (leagueId != null) {
       try {
         final squads = await Api.squads(leagueId: leagueId, teamId: team.id);
-        final active = squads.where((s) => s.active).toList();
-        if (active.isNotEmpty) {
-          final slots = active.first.slots.entries.toList()
-            ..sort((a, b) => a.key.compareTo(b.key));
-          squadPlayers = slots.map((e) => e.value).toList();
+        squads.sort((a, b) => (b.active ? 1 : 0).compareTo(a.active ? 1 : 0));
+        final seen = <int>{};
+        for (final squad in squads) {
+          final slots = squad.slots.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+          for (final e in slots) {
+            if (seen.add(e.value.id)) players.add(e.value);
+          }
         }
       } catch (_) {
-        // No squad available: fall back to the search.
+        failed = true;
       }
     }
     if (!context.mounted) return null;
-    if (squadPlayers.isEmpty) {
-      return pickPlayer(context);
+    if (players.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(failed
+              ? 'Could not load the squad of ${team.name}.'
+              : '${team.name} has no squad in this league yet. '
+                  'Build one in the Squads tab to pick scorers.'),
+        ));
+      return null;
     }
-    final choice = await showModalBottomSheet<Object>(
+    return showModalBottomSheet<Player>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => SafeArea(
@@ -76,21 +88,13 @@ class ScorersCard extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Text('${team.name}: who scored?', style: displayStyle(size: 26)),
               ),
-              for (final p in squadPlayers)
+              for (final p in players)
                 PlayerTile(player: p, note: p.positions, onTap: () => Navigator.pop(ctx, p)),
-              ListTile(
-                leading: const Icon(Icons.search),
-                title: const Text('Search any player…'),
-                onTap: () => Navigator.pop(ctx, 'search'),
-              ),
             ],
           ),
         ),
       ),
     );
-    if (choice is Player) return choice;
-    if (choice == 'search' && context.mounted) return pickPlayer(context);
-    return null;
   }
 
   Widget _side(BuildContext context, Team team, int goals) {
@@ -184,7 +188,7 @@ class ScorersCard extends StatelessWidget {
           Text('Who scored? (optional)', style: displayStyle(size: 24)),
           const SizedBox(height: 2),
           const Text(
-            'You can leave it empty, or add only the goals you know.',
+            'Only players from the squads of each team in this league. Leave it empty or add only the goals you know.',
             style: TextStyle(color: AppColors.textDim, fontSize: 12),
           ),
           _side(context, home, homeGoals),
