@@ -220,6 +220,59 @@ class HeadToHead {
 
 int? _toIntN(dynamic v) => (v as num?)?.toInt();
 
+/// An attribute of a player: JSON key (= server filter name), label and group.
+class StatDef {
+  final String key;
+  final String label;
+  final String group;
+
+  const StatDef(this.key, this.label, this.group);
+}
+
+const List<StatDef> kStats = [
+  StatDef('pace', 'Pace', 'Main'),
+  StatDef('shooting', 'Shooting', 'Main'),
+  StatDef('passing', 'Passing', 'Main'),
+  StatDef('dribbling', 'Dribbling (main)', 'Main'),
+  StatDef('defending', 'Defending (main)', 'Main'),
+  StatDef('physic', 'Physical', 'Main'),
+  StatDef('attackingCrossing', 'Crossing', 'Attacking'),
+  StatDef('attackingFinishing', 'Finishing', 'Attacking'),
+  StatDef('attackingHeadingAccuracy', 'Heading accuracy', 'Attacking'),
+  StatDef('attackingShortPassing', 'Short passing', 'Attacking'),
+  StatDef('attackingVolleys', 'Volleys', 'Attacking'),
+  StatDef('skillDribbling', 'Dribbling', 'Skill'),
+  StatDef('skillCurve', 'Curve', 'Skill'),
+  StatDef('skillFkAccuracy', 'Free kick accuracy', 'Skill'),
+  StatDef('skillLongPassing', 'Long passing', 'Skill'),
+  StatDef('skillBallControl', 'Ball control', 'Skill'),
+  StatDef('movementAcceleration', 'Acceleration', 'Movement'),
+  StatDef('movementSprintSpeed', 'Sprint speed', 'Movement'),
+  StatDef('movementAgility', 'Agility', 'Movement'),
+  StatDef('movementReactions', 'Reactions', 'Movement'),
+  StatDef('movementBalance', 'Balance', 'Movement'),
+  StatDef('powerShotPower', 'Shot power', 'Power'),
+  StatDef('powerJumping', 'Jumping', 'Power'),
+  StatDef('powerStamina', 'Stamina', 'Power'),
+  StatDef('powerStrength', 'Strength', 'Power'),
+  StatDef('powerLongShots', 'Long shots', 'Power'),
+  StatDef('mentalityAggression', 'Aggression', 'Mentality'),
+  StatDef('mentalityInterceptions', 'Interceptions', 'Mentality'),
+  StatDef('mentalityPositioning', 'Positioning', 'Mentality'),
+  StatDef('mentalityVision', 'Vision', 'Mentality'),
+  StatDef('mentalityPenalties', 'Penalties', 'Mentality'),
+  StatDef('mentalityComposure', 'Composure', 'Mentality'),
+  StatDef('defendingMarkingAwareness', 'Marking', 'Defending'),
+  StatDef('defendingStandingTackle', 'Standing tackle', 'Defending'),
+  StatDef('defendingSlidingTackle', 'Sliding tackle', 'Defending'),
+  StatDef('gkDiving', 'GK diving', 'Goalkeeping'),
+  StatDef('gkHandling', 'GK handling', 'Goalkeeping'),
+  StatDef('gkKicking', 'GK kicking', 'Goalkeeping'),
+  StatDef('gkPositioning', 'GK positioning', 'Goalkeeping'),
+  StatDef('gkReflexes', 'GK reflexes', 'Goalkeeping'),
+  StatDef('gkSpeed', 'GK speed', 'Goalkeeping'),
+];
+
 /// A real FC 26 player from the imported database.
 class Player {
   final int id;
@@ -250,6 +303,9 @@ class Player {
   final int? gkReflexes;
   final int? gkSpeed;
 
+  /// Every attribute in [kStats] that the server sent, by key.
+  final Map<String, int> detail;
+
   Player({
     required this.id,
     required this.shortName,
@@ -278,6 +334,7 @@ class Player {
     this.gkPositioning,
     this.gkReflexes,
     this.gkSpeed,
+    this.detail = const {},
   });
 
   factory Player.fromJson(Map<String, dynamic> j) => Player(
@@ -308,7 +365,14 @@ class Player {
         gkPositioning: _toIntN(j['gkPositioning']),
         gkReflexes: _toIntN(j['gkReflexes']),
         gkSpeed: _toIntN(j['gkSpeed']),
+        detail: {
+          for (final s in kStats)
+            if (j[s.key] is num) s.key: (j[s.key] as num).toInt(),
+        },
       );
+
+  /// An attribute by its [kStats] key, or null if unknown.
+  int? stat(String key) => detail[key];
 
   List<String> get positionList => positions
       .split(',')

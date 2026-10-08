@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
+import 'player_filters.dart';
 
 /// true  -> fake in-memory data, no backend needed (to preview the UI).
 /// false -> talk to the real Spring Boot API.
@@ -320,26 +321,30 @@ class Api {
   static Future<PlayerPage> searchPlayers({
     String q = '',
     String position = '',
-    String league = '',
-    int minOverall = 0,
-    String sort = 'overall',
+    PlayerFilters? filters,
     int page = 0,
   }) async {
+    final f = filters ?? PlayerFilters();
     if (demoMode) {
       await _latency();
-      return _Demo.searchPlayers(q, position, sort, page);
+      return _Demo.searchPlayers(q, position, f, page);
     }
     final query = Uri(queryParameters: {
       'q': q,
       'position': position,
-      'league': league,
-      'minOverall': '$minOverall',
-      'sort': sort,
+      ...f.toQuery(),
       'page': '$page',
       'size': '20',
     }).query;
     final data = await _get('/players?$query');
     return PlayerPage.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Real leagues that have players (for the filter dropdown).
+  static Future<List<String>> playerLeagues() async {
+    if (demoMode) return ['Demo League'];
+    final data = await _get('/players/leagues') as List;
+    return data.map((e) => e as String).toList();
   }
 
   // ---- Squads ----
@@ -554,17 +559,25 @@ class _Demo {
     return out;
   }
 
-  static PlayerPage searchPlayers(String q, String position, String sort, int page) {
+  static PlayerPage searchPlayers(String q, String position, PlayerFilters f, int page) {
     final text = q.toLowerCase().trim();
+    final sort = f.sort;
     final list = players.where((p) {
       if (position.isNotEmpty && !p.canPlay(position)) return false;
+      if (f.minOverall != null && p.overall < f.minOverall!) return false;
+      if (f.maxOverall != null && p.overall > f.maxOverall!) return false;
+      if (f.maxValueM != null && (p.valueEur ?? 0) > f.maxValueM! * 1000000) return false;
+      if (f.minValueM != null && (p.valueEur ?? 0) < f.minValueM! * 1000000) return false;
       return text.isEmpty ||
           p.shortName.toLowerCase().contains(text) ||
           p.longName.toLowerCase().contains(text);
     }).toList();
-    list.sort((a, b) => sort == 'value'
-        ? (b.valueEur ?? 0).compareTo(a.valueEur ?? 0)
-        : b.overall.compareTo(a.overall));
+    list.sort((a, b) {
+      final c = sort == 'value'
+          ? (b.valueEur ?? 0).compareTo(a.valueEur ?? 0)
+          : b.overall.compareTo(a.overall);
+      return f.ascending ? -c : c;
+    });
     final start = page * 20;
     final end = (start + 20).clamp(0, list.length);
     return PlayerPage(

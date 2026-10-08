@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'api.dart';
 import 'models.dart';
+import 'player_filters.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -156,6 +157,7 @@ Future<void> showPlayerDetail(BuildContext context, Player p) {
             ),
             const SizedBox(height: 18),
             for (final s in p.headlineStats) _StatBar(label: s.$1, value: s.$2),
+            ..._detailGroups(p),
           ],
         ),
       ),
@@ -228,6 +230,50 @@ class _StatBar extends StatelessWidget {
   }
 }
 
+/// Detailed attributes grouped like in the game (Attacking, Skill, Movement...).
+List<Widget> _detailGroups(Player p) {
+  final groups = <String, List<StatDef>>{};
+  for (final s in kStats) {
+    if (s.group == 'Main') continue;
+    if (p.stat(s.key) == null) continue;
+    if (p.isGoalkeeper != (s.group == 'Goalkeeping')) continue;
+    groups.putIfAbsent(s.group, () => []).add(s);
+  }
+  return [
+    for (final g in groups.entries) ...[
+      Padding(
+        padding: const EdgeInsets.only(top: 14, bottom: 8),
+        child: Text(g.key, style: displayStyle(size: 22)),
+      ),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final s in g.value)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceHi,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('${p.stat(s.key)}',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800, color: ratingColor(p.stat(s.key)!))),
+                  const SizedBox(width: 6),
+                  Text(s.label,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textDim)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ],
+  ];
+}
+
 const List<String> _positionFilters = [
   'GK', 'CB', 'LB', 'RB', 'LWB', 'RWB', 'CDM', 'CM', 'CAM',
   'LM', 'RM', 'LW', 'RW', 'CF', 'ST',
@@ -269,7 +315,7 @@ class _PlayerPickerState extends State<_PlayerPicker> {
   int _request = 0;
 
   late String _position = widget.initialPosition;
-  String _sort = 'overall';
+  PlayerFilters _filters = PlayerFilters();
   final List<Player> _players = [];
   int _page = 0;
   bool _hasNext = false;
@@ -312,7 +358,7 @@ class _PlayerPickerState extends State<_PlayerPicker> {
       final result = await Api.searchPlayers(
         q: _search.text.trim(),
         position: _position,
-        sort: _sort,
+        filters: _filters,
         page: _page,
       );
       if (!mounted || id != _request) return;
@@ -358,20 +404,20 @@ class _PlayerPickerState extends State<_PlayerPicker> {
                     ),
                   ),
                 ),
-                PopupMenuButton<String>(
-                  tooltip: 'Sort',
-                  icon: const Icon(Icons.sort),
-                  initialValue: _sort,
-                  onSelected: (v) {
-                    _sort = v;
-                    _load(reset: true);
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'overall', child: Text('Best rating')),
-                    PopupMenuItem(value: 'value', child: Text('Highest value')),
-                    PopupMenuItem(value: 'potential', child: Text('Best potential')),
-                    PopupMenuItem(value: 'age', child: Text('Youngest')),
-                  ],
+                const SizedBox(width: 6),
+                Badge(
+                  isLabelVisible: _filters.activeCount > 0,
+                  label: Text('${_filters.activeCount}'),
+                  child: IconButton.filledTonal(
+                    tooltip: 'Filters',
+                    icon: const Icon(Icons.tune),
+                    onPressed: () async {
+                      final result = await showPlayerFilters(context, _filters);
+                      if (result == null) return;
+                      _filters = result;
+                      _load(reset: true);
+                    },
+                  ),
                 ),
               ],
             ),
@@ -417,7 +463,9 @@ class _PlayerPickerState extends State<_PlayerPicker> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('$_total players',
+                child: Text(
+                    '$_total players  ·  sorted by ${sortLabel(_filters.sort).toLowerCase()}'
+                    '${_filters.ascending ? ' (low to high)' : ''}',
                     style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
               ),
             ),

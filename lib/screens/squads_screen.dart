@@ -270,7 +270,7 @@ class _SquadCard extends StatelessWidget {
                                         color: color.withAlpha(60),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
-                                      child: const Text('ACTIVE',
+                                      child: const Text('CURRENT',
                                           style: TextStyle(
                                               fontSize: 10, fontWeight: FontWeight.w800)),
                                     ),
