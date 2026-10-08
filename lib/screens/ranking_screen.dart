@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../async_view.dart';
+import '../best_xi.dart';
+import '../stats_widgets.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -83,13 +86,17 @@ class _RankingScreenState extends State<RankingScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _LeagueTable(entries: entries),
+                      LeagueTable(entries: entries),
                       const Padding(
                         padding: EdgeInsets.fromLTRB(10, 14, 10, 0),
                         child: Text(
                           'P -> Played\nW -> Won\nD -> Drawn\nL -> Lost\nGF -> Goals Favor\nGA -> Goals Against\nGD -> Goal Difference',
                           style: TextStyle(fontSize: 12, color: AppColors.textDim, height: 1.4),
                         ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: _MegaStats(),
                       ),
                     ],
                   ),
@@ -103,10 +110,10 @@ class _RankingScreenState extends State<RankingScreen> {
   }
 }
 
-class _LeagueTable extends StatelessWidget {
+class LeagueTable extends StatelessWidget {
   final List<RankingEntry> entries;
 
-  const _LeagueTable({required this.entries});
+  const LeagueTable({super.key, required this.entries});
 
   @override
   Widget build(BuildContext context) {
@@ -258,6 +265,43 @@ class _DataRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Stats of the whole MegaLeague: scorers, most used players and best XI.
+class _MegaStats extends StatelessWidget {
+  const _MegaStats();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionTitle('Top scorers', hint: 'All leagues together'),
+        AsyncView<List<ScorerRow>>(
+          compact: true,
+          load: () => Api.topScorers(),
+          builder: (context, rows) => ScorerList(rows: rows),
+        ),
+        const SectionTitle('Most used players', hint: 'In the active squads of every league'),
+        AsyncView<List<MostUsedRow>>(
+          compact: true,
+          load: () => Api.mostUsed(),
+          builder: (context, rows) => MostUsedList(rows: rows),
+        ),
+        const SectionTitle('MegaLeague best XI',
+            hint: 'Average of the ratings given in each league'),
+        AsyncView<List<RatingRow>>(
+          compact: true,
+          load: () => Api.megaRatings(),
+          builder: (context, rows) => BestXiView(
+            rows: rows,
+            emptyMessage: 'Rate players in the Best XI tab of each league '
+                'and the MegaLeague best XI appears here.',
+          ),
+        ),
+      ],
     );
   }
 }

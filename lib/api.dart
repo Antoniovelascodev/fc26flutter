@@ -211,6 +211,7 @@ class Api {
     required int homeGoals,
     required int awayGoals,
     required int leagueId,
+    List<ScorerInput> scorers = const [],
   }) async {
     if (demoMode) {
       await _latency();
@@ -222,6 +223,15 @@ class Api {
         awayGoals: awayGoals,
         leagueId: leagueId,
         date: DateTime.now(),
+        goals: [
+          for (final g in scorers)
+            GoalItem(
+              playerId: g.player.id,
+              playerName: g.player.shortName,
+              teamName: _Demo._teamName(g.teamId),
+              goals: g.goals,
+            ),
+        ],
       ));
       return;
     }
@@ -231,6 +241,11 @@ class Api {
       'homeGoals': homeGoals,
       'awayGoals': awayGoals,
       'leagueId': leagueId,
+      if (scorers.isNotEmpty)
+        'goals': [
+          for (final g in scorers)
+            {'playerId': g.player.id, 'teamId': g.teamId, 'goals': g.goals},
+        ],
     });
   }
 
@@ -347,6 +362,71 @@ class Api {
     await _delete('/squads/$id');
   }
 
+  // ---- League stats ----
+  static Future<List<RankingEntry>> standings(int leagueId) async {
+    if (demoMode) {
+      await _latency();
+      return _Demo.ranking(leagueId: leagueId);
+    }
+    final data = await _get('/leagues/$leagueId/standings') as List;
+    return data.map((e) => RankingEntry.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Top scorers of one league, or of all leagues when [leagueId] is null.
+  static Future<List<ScorerRow>> topScorers({int? leagueId}) async {
+    if (demoMode) {
+      await _latency();
+      return _Demo.topScorers(leagueId);
+    }
+    final path = leagueId == null ? '/stats/top-scorers' : '/leagues/$leagueId/top-scorers';
+    final data = await _get(path) as List;
+    return data.map((e) => ScorerRow.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<List<MostUsedRow>> mostUsed({int? leagueId}) async {
+    if (demoMode) {
+      await _latency();
+      return const [];
+    }
+    final data = await _get(leagueId == null
+        ? '/stats/most-used'
+        : '/stats/most-used?leagueId=$leagueId') as List;
+    return data.map((e) => MostUsedRow.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  // ---- Ratings (best XI) ----
+  static Future<List<RatingRow>> leagueRatings(int leagueId) async {
+    if (demoMode) {
+      await _latency();
+      return _Demo.leagueRatings(leagueId);
+    }
+    final data = await _get('/leagues/$leagueId/ratings') as List;
+    return data.map((e) => RatingRow.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// [rating] null removes the rating.
+  static Future<void> rate(int leagueId, int playerId, double? rating) async {
+    if (demoMode) {
+      await _latency();
+      _Demo.rate(leagueId, playerId, rating);
+      return;
+    }
+    if (rating == null) {
+      await _delete('/leagues/$leagueId/ratings/$playerId');
+    } else {
+      await _put('/leagues/$leagueId/ratings', {'playerId': playerId, 'rating': rating});
+    }
+  }
+
+  static Future<List<RatingRow>> megaRatings() async {
+    if (demoMode) {
+      await _latency();
+      return _Demo.megaRatings();
+    }
+    final data = await _get('/mega-league/ratings') as List;
+    return data.map((e) => RatingRow.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   // ---- MegaLeague ----
   static Future<List<RankingEntry>> ranking() async {
     if (demoMode) {
@@ -370,6 +450,7 @@ class _DemoMatch {
   final int awayGoals;
   final int leagueId;
   final DateTime date;
+  final List<GoalItem> goals;
 
   _DemoMatch({
     required this.id,
@@ -379,6 +460,7 @@ class _DemoMatch {
     required this.awayGoals,
     required this.leagueId,
     required this.date,
+    this.goals = const [],
   });
 }
 
@@ -462,6 +544,76 @@ class _Demo {
     );
   }
 
+  static final Map<String, double> _ratings = {};
+
+  static void rate(int leagueId, int playerId, double? rating) {
+    final key = '$leagueId/$playerId';
+    if (rating == null) {
+      _ratings.remove(key);
+    } else {
+      _ratings[key] = rating;
+    }
+  }
+
+  static List<ScorerRow> topScorers(int? leagueId) {
+    final totals = <String, ScorerRow>{};
+    for (final m in matches) {
+      if (leagueId != null && m.leagueId != leagueId) continue;
+      for (final g in m.goals) {
+        final player = players.firstWhere((p) => p.id == g.playerId);
+        final key = '${g.playerId}/${g.teamName}';
+        final old = totals[key];
+        totals[key] = ScorerRow(
+            player: player, teamName: g.teamName, goals: (old?.goals ?? 0) + g.goals);
+      }
+    }
+    final list = totals.values.toList()..sort((a, b) => b.goals.compareTo(a.goals));
+    return list;
+  }
+
+  static List<RatingRow> leagueRatings(int leagueId) {
+    final ids = <int>{};
+    final teamsOf = <int, Set<String>>{};
+    for (final s in squads.where((s) => s.leagueId == leagueId)) {
+      for (final p in s.slots.values) {
+        ids.add(p.id);
+        (teamsOf[p.id] ??= {}).add(s.teamName);
+      }
+    }
+    final rows = [
+      for (final p in players.where((p) => ids.contains(p.id)))
+        RatingRow(
+          player: p,
+          rating: _ratings['$leagueId/${p.id}'],
+          ratedIn: _ratings.containsKey('$leagueId/${p.id}') ? 1 : 0,
+          teams: (teamsOf[p.id] ?? {}).toList(),
+        ),
+    ];
+    rows.sort((a, b) => (b.rating ?? -1).compareTo(a.rating ?? -1));
+    return rows;
+  }
+
+  static List<RatingRow> megaRatings() {
+    final sums = <int, double>{};
+    final counts = <int, int>{};
+    _ratings.forEach((key, value) {
+      final id = int.parse(key.split('/')[1]);
+      sums[id] = (sums[id] ?? 0) + value;
+      counts[id] = (counts[id] ?? 0) + 1;
+    });
+    final rows = [
+      for (final id in sums.keys)
+        RatingRow(
+          player: players.firstWhere((p) => p.id == id),
+          rating: sums[id]! / counts[id]!,
+          ratedIn: counts[id]!,
+          teams: const [],
+        ),
+    ];
+    rows.sort((a, b) => b.rating!.compareTo(a.rating!));
+    return rows;
+  }
+
   static Squad saveSquad(Squad s) {
     final hasOther = squads.any(
         (q) => q.leagueId == s.leagueId && q.teamId == s.teamId && q.id != s.id);
@@ -487,10 +639,10 @@ class _Demo {
   }
 
   static final List<_DemoMatch> matches = [
-    _DemoMatch(id: 1, homeId: 1, awayId: 2, homeGoals: 3, awayGoals: 1, leagueId: 1, date: DateTime.now().subtract(const Duration(days: 5))),
+    _DemoMatch(id: 1, homeId: 1, awayId: 2, homeGoals: 3, awayGoals: 1, leagueId: 1, date: DateTime.now().subtract(const Duration(days: 5)), goals: [GoalItem(playerId: 11, playerName: 'K. Demo', teamName: 'Antonio', goals: 2), GoalItem(playerId: 10, playerName: 'J. Test', teamName: 'Antonio', goals: 1), GoalItem(playerId: 9, playerName: 'I. Hueco', teamName: 'Iván', goals: 1)]),
     _DemoMatch(id: 2, homeId: 3, awayId: 4, homeGoals: 2, awayGoals: 2, leagueId: 1, date: DateTime.now().subtract(const Duration(days: 4))),
     _DemoMatch(id: 3, homeId: 2, awayId: 3, homeGoals: 0, awayGoals: 1, leagueId: 1, date: DateTime.now().subtract(const Duration(days: 3))),
-    _DemoMatch(id: 4, homeId: 4, awayId: 1, homeGoals: 1, awayGoals: 4, leagueId: 1, date: DateTime.now().subtract(const Duration(days: 2))),
+    _DemoMatch(id: 4, homeId: 4, awayId: 1, homeGoals: 1, awayGoals: 4, leagueId: 1, date: DateTime.now().subtract(const Duration(days: 2)), goals: [GoalItem(playerId: 11, playerName: 'K. Demo', teamName: 'Antonio', goals: 3), GoalItem(playerId: 8, playerName: 'H. Gris', teamName: 'Antonio', goals: 1)]),
     _DemoMatch(id: 5, homeId: 2, awayId: 1, homeGoals: 2, awayGoals: 2, leagueId: 1, date: DateTime.now().subtract(const Duration(days: 1))),
   ];
 
@@ -512,14 +664,16 @@ class _Demo {
       leagueName: _leagueName(m.leagueId),
       matchDate: m.date,
       result: result,
+      goals: m.goals,
     );
   }
 
-  static List<RankingEntry> ranking() {
+  static List<RankingEntry> ranking({int? leagueId}) {
     final out = <RankingEntry>[];
     for (final t in teams) {
       int played = 0, wins = 0, draws = 0, losses = 0, gf = 0, ga = 0;
       for (final m in matches) {
+        if (leagueId != null && m.leagueId != leagueId) continue;
         int own;
         int opp;
         if (m.homeId == t.id) {

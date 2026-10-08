@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../models.dart';
+import '../scorers_card.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -24,6 +25,7 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
   int? _awayId;
   int _homeGoals = 0;
   int _awayGoals = 0;
+  final List<ScorerInput> _scorers = [];
 
   @override
   void initState() {
@@ -66,6 +68,22 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
         _error = e;
         _loading = false;
       });
+    }
+  }
+
+  /// Keeps the scorers consistent with the teams and goals on screen.
+  void _syncScorers() {
+    _scorers.removeWhere((s) => s.teamId != _homeId && s.teamId != _awayId);
+    for (final teamId in [_homeId, _awayId]) {
+      final goals = teamId == _homeId ? _homeGoals : _awayGoals;
+      var total = _scorers.where((s) => s.teamId == teamId).fold<int>(0, (a, s) => a + s.goals);
+      for (final s in _scorers.where((s) => s.teamId == teamId).toList().reversed) {
+        while (total > goals && s.goals > 0) {
+          s.goals--;
+          total--;
+        }
+        if (s.goals <= 0) _scorers.remove(s);
+      }
     }
   }
 
@@ -130,6 +148,7 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
       } else {
         _awayId = team.id;
       }
+      _syncScorers();
     });
   }
 
@@ -149,11 +168,13 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
         homeGoals: hg,
         awayGoals: ag,
         leagueId: _leagueId!,
+        scorers: List.of(_scorers),
       );
       if (!mounted) return;
       setState(() {
         _homeGoals = 0;
         _awayGoals = 0;
+        _scorers.clear();
       });
       _toast('Saved: ${home.name} $hg-$ag ${away.name}');
       notifyDataChanged();
@@ -221,7 +242,10 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
                   goals: _homeGoals,
                   onPickTeam: () => _pick(home: true),
                   onGoal: () => setState(() { if (_homeGoals < 99) _homeGoals++; }),
-                  onUndo: () => setState(() => _homeGoals--),
+                  onUndo: () => setState(() {
+                    _homeGoals--;
+                    _syncScorers();
+                  }),
                 ),
               ),
               const SizedBox(width: 12),
@@ -232,7 +256,10 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
                   goals: _awayGoals,
                   onPickTeam: () => _pick(home: false),
                   onGoal: () => setState(() { if (_awayGoals < 99) _awayGoals++; }),
-                  onUndo: () => setState(() => _awayGoals--),
+                  onUndo: () => setState(() {
+                    _awayGoals--;
+                    _syncScorers();
+                  }),
                 ),
               ),
             ],
@@ -246,6 +273,16 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
             style: TextStyle(color: AppColors.textDim, fontSize: 13),
           ),
         ),
+        if (home != null && away != null && _homeGoals + _awayGoals > 0)
+          ScorersCard(
+            home: home,
+            away: away,
+            homeGoals: _homeGoals,
+            awayGoals: _awayGoals,
+            leagueId: _leagueId,
+            scorers: _scorers,
+            onChanged: () => setState(() {}),
+          ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: FilledButton(

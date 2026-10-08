@@ -319,6 +319,17 @@ class MatchStrip extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (match.goals.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _Scorers(match.goalsOf(match.homeTeamName), TextAlign.right)),
+                          const SizedBox(width: 40),
+                          Expanded(child: _Scorers(match.goalsOf(match.awayTeamName), TextAlign.left)),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -359,6 +370,27 @@ class MatchStrip extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "Mbappé 2, Vinicius" under a match score.
+class _Scorers extends StatelessWidget {
+  final List<GoalItem> goals;
+  final TextAlign align;
+
+  const _Scorers(this.goals, this.align);
+
+  @override
+  Widget build(BuildContext context) {
+    if (goals.isEmpty) return const SizedBox.shrink();
+    final text = goals
+        .map((g) => g.goals > 1 ? '${g.playerName} ${g.goals}' : g.playerName)
+        .join(', ');
+    return Text(
+      '⚽ $text',
+      textAlign: align,
+      style: const TextStyle(fontSize: 11, color: AppColors.textDim, height: 1.3),
     );
   }
 }

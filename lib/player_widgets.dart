@@ -47,7 +47,16 @@ class PlayerTile extends StatelessWidget {
   final VoidCallback? onTap;
   final String? note;
 
-  const PlayerTile({super.key, required this.player, this.onTap, this.note});
+  /// Replaces the value / potential column on the right.
+  final Widget? trailingOverride;
+
+  const PlayerTile({
+    super.key,
+    required this.player,
+    this.onTap,
+    this.note,
+    this.trailingOverride,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +82,8 @@ class PlayerTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: AppColors.textDim, fontSize: 12),
         ),
-        trailing: Column(
+        trailing: trailingOverride ??
+            Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [

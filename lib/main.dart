@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'api.dart';
 import 'download_stub.dart' if (dart.library.js_interop) 'download_web.dart';
 import 'screens/head_to_head_screen.dart';
-import 'screens/history_screen.dart';
+import 'screens/league_screen.dart';
 import 'screens/new_match_screen.dart';
 import 'screens/ranking_screen.dart';
 import 'screens/squads_screen.dart';
@@ -41,7 +41,7 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _titles = ['MegaLigue', 'New match', 'Head to head', 'History', 'Squads'];
+  static const _titles = ['MegaLigue', 'New match', 'Head to head', 'Leagues', 'Squads'];
 
   Future<void> _editKey() async {
     final controller = TextEditingController(text: Api.apiKey);
@@ -219,7 +219,7 @@ class _HomeShellState extends State<HomeShell> {
                 RankingScreen(),
                 NewMatchScreen(),
                 HeadToHeadScreen(),
-                HistoryScreen(),
+                LeagueScreen(),
                 SquadsScreen(),
               ],
             ),
@@ -245,8 +245,9 @@ class _HomeShellState extends State<HomeShell> {
             label: 'Head to head',
           ),
           NavigationDestination(
-            icon: Icon(Icons.history),
-            label: 'History',
+            icon: Icon(Icons.emoji_events_outlined),
+            selectedIcon: Icon(Icons.emoji_events),
+            label: 'Leagues',
           ),
           NavigationDestination(
             icon: Icon(Icons.groups_outlined),

@@ -70,6 +70,7 @@ class MatchItem {
   final String leagueName;
   final DateTime? matchDate;
   final String result; // HOME_WIN, AWAY_WIN, DRAW
+  final List<GoalItem> goals;
 
   MatchItem({
     required this.id,
@@ -80,6 +81,7 @@ class MatchItem {
     required this.leagueName,
     required this.matchDate,
     required this.result,
+    this.goals = const [],
   });
 
   factory MatchItem.fromJson(Map<String, dynamic> j) => MatchItem(
@@ -91,6 +93,93 @@ class MatchItem {
         leagueName: j['leagueName'] as String? ?? '',
         matchDate: DateTime.tryParse(j['matchDate'] as String? ?? ''),
         result: j['result'] as String? ?? 'DRAW',
+        goals: ((j['goals'] as List?) ?? [])
+            .map((e) => GoalItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  List<GoalItem> goalsOf(String teamName) =>
+      goals.where((g) => g.teamName == teamName).toList();
+}
+
+/// A scorer of a saved match.
+class GoalItem {
+  final int playerId;
+  final String playerName;
+  final String teamName;
+  final int goals;
+
+  GoalItem({
+    required this.playerId,
+    required this.playerName,
+    required this.teamName,
+    required this.goals,
+  });
+
+  factory GoalItem.fromJson(Map<String, dynamic> j) => GoalItem(
+        playerId: _toInt(j['playerId']),
+        playerName: j['playerName'] as String? ?? '',
+        teamName: j['teamName'] as String? ?? '',
+        goals: _toInt(j['goals']),
+      );
+}
+
+/// A scorer being entered for a new match.
+class ScorerInput {
+  final Player player;
+  final int teamId;
+  int goals;
+
+  ScorerInput({required this.player, required this.teamId, this.goals = 1});
+}
+
+class ScorerRow {
+  final Player player;
+  final String teamName;
+  final int goals;
+
+  ScorerRow({required this.player, required this.teamName, required this.goals});
+
+  factory ScorerRow.fromJson(Map<String, dynamic> j) => ScorerRow(
+        player: Player.fromJson(j['player'] as Map<String, dynamic>),
+        teamName: j['teamName'] as String? ?? '',
+        goals: _toInt(j['goals']),
+      );
+}
+
+class MostUsedRow {
+  final Player player;
+  final int squads;
+  final List<String> teams;
+
+  MostUsedRow({required this.player, required this.squads, required this.teams});
+
+  factory MostUsedRow.fromJson(Map<String, dynamic> j) => MostUsedRow(
+        player: Player.fromJson(j['player'] as Map<String, dynamic>),
+        squads: _toInt(j['squads']),
+        teams: ((j['teams'] as List?) ?? []).map((e) => e as String).toList(),
+      );
+}
+
+/// A player that can be rated (league) or has an average rating (MegaLeague).
+class RatingRow {
+  final Player player;
+  final double? rating;
+  final int ratedIn;
+  final List<String> teams;
+
+  RatingRow({
+    required this.player,
+    required this.rating,
+    required this.ratedIn,
+    required this.teams,
+  });
+
+  factory RatingRow.fromJson(Map<String, dynamic> j) => RatingRow(
+        player: Player.fromJson(j['player'] as Map<String, dynamic>),
+        rating: (j['rating'] as num?)?.toDouble(),
+        ratedIn: _toInt(j['ratedIn']),
+        teams: ((j['teams'] as List?) ?? []).map((e) => e as String).toList(),
       );
 }
 
