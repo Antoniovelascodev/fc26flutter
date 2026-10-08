@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../models.dart';
+import '../theme.dart';
 import '../widgets.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -61,6 +62,47 @@ class _HistoryScreenState extends State<HistoryScreen> {
     });
   }
 
+  Future<void> _confirmDelete(MatchItem m) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Delete this match?', style: displayStyle(size: 28)),
+        content: Text(
+          '${m.homeTeamName} ${m.homeGoals}-${m.awayGoals} ${m.awayTeamName}\n'
+          'The table will be recalculated without it.',
+          style: const TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep match'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete match'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await Api.deleteMatch(m.id);
+      notifyDataChanged();
+      if (!mounted) return;
+      _toast('Match deleted');
+    } catch (e) {
+      if (!mounted) return;
+      _toast(e.toString());
+    }
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -112,7 +154,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
               return ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 itemCount: matches.length,
-                itemBuilder: (context, i) => MatchStrip(match: matches[i]),
+                itemBuilder: (context, i) => MatchStrip(
+                  match: matches[i],
+                  onDelete: () => _confirmDelete(matches[i]),
+                ),
               );
             },
           ),

@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'api.dart';
+import 'download_stub.dart' if (dart.library.js_interop) 'download_web.dart';
 import 'screens/head_to_head_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/new_match_screen.dart';
 import 'screens/ranking_screen.dart';
 import 'theme.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Api.loadKey();
+  Api.warmUp(); // not awaited: just wakes the server up while the UI loads
   runApp(const MegaLigueApp());
 }
 
@@ -37,12 +42,128 @@ class _HomeShellState extends State<HomeShell> {
 
   static const _titles = ['MegaLigue', 'New match', 'Head to head', 'History'];
 
+  Future<void> _editKey() async {
+    final controller = TextEditingController(text: Api.apiKey);
+    final key = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Group access key', style: displayStyle(size: 28)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Needed to save or delete matches. Ask the group admin for it.',
+              style: TextStyle(color: AppColors.textDim, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Access key'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Save key'),
+          ),
+        ],
+      ),
+    );
+    if (key == null) return;
+    await Api.saveKey(key);
+    if (!mounted) return;
+    setState(() {});
+    notifyDataChanged();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Access key saved')));
+  }
+
+  Future<void> _backup() async {
+    if (!Api.hasKey) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+            content: Text('Set the access key first (key icon) to download a backup.')));
+      return;
+    }
+    String json;
+    try {
+      json = await Api.exportBackup();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.toString())));
+      return;
+    }
+    if (!mounted) return;
+    final now = DateTime.now();
+    String two(int n) => n.toString().padLeft(2, '0');
+    final filename = 'fc26-backup-${now.year}-${two(now.month)}-${two(now.day)}.json';
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Backup ready', style: displayStyle(size: 28)),
+        content: Text(
+          canDownloadFile
+              ? 'Save the file somewhere safe (your PC, a private cloud folder). '
+                  'Do it every week or after a big session.'
+              : 'Copy the backup and paste it into a file named $filename. '
+                  'Keep it somewhere safe.',
+          style: const TextStyle(color: AppColors.textDim, height: 1.4),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+          if (canDownloadFile)
+            TextButton(
+              onPressed: () {
+                downloadTextFile(filename, json);
+                Navigator.pop(ctx);
+              },
+              child: const Text('Download file'),
+            )
+          else
+            TextButton(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: json));
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Copy backup'),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_index]),
         actions: [
+          if (!demoMode)
+            IconButton(
+              tooltip: 'Download backup',
+              icon: const Icon(Icons.download_outlined, color: AppColors.textDim),
+              onPressed: _backup,
+            ),
+          if (!demoMode)
+            IconButton(
+              tooltip: 'Access key',
+              icon: Icon(
+                Api.hasKey ? Icons.vpn_key : Icons.vpn_key_outlined,
+                color: Api.hasKey ? AppColors.text : AppColors.textDim,
+              ),
+              onPressed: _editKey,
+            ),
           if (demoMode)
             Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -62,13 +183,45 @@ class _HomeShellState extends State<HomeShell> {
             ),
         ],
       ),
-      body: IndexedStack(
-        index: _index,
-        children: const [
-          RankingScreen(),
-          NewMatchScreen(),
-          HeadToHeadScreen(),
-          HistoryScreen(),
+      body: Column(
+        children: [
+          ValueListenableBuilder<bool>(
+            valueListenable: waking,
+            builder: (context, isWaking, _) => isWaking
+                ? Container(
+                    width: double.infinity,
+                    color: AppColors.surfaceHi,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: const Row(
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Waking up the server, this can take up to a minute...',
+                            style: TextStyle(fontSize: 13, color: AppColors.textDim),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          Expanded(
+            child: IndexedStack(
+              index: _index,
+              children: const [
+                RankingScreen(),
+                NewMatchScreen(),
+                HeadToHeadScreen(),
+                HistoryScreen(),
+              ],
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(

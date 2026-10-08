@@ -229,7 +229,10 @@ Future<Team?> pickTeam(
 class MatchStrip extends StatelessWidget {
   final MatchItem match;
 
-  const MatchStrip({super.key, required this.match});
+  /// When set, a small trash button is shown to delete the match.
+  final VoidCallback? onDelete;
+
+  const MatchStrip({super.key, required this.match, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -324,9 +327,27 @@ class MatchStrip extends StatelessWidget {
                           formatDate(match.matchDate),
                           style: const TextStyle(fontSize: 12, color: AppColors.textDim),
                         ),
-                        Text(
-                          match.leagueName,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textDim),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              match.leagueName,
+                              style: const TextStyle(fontSize: 12, color: AppColors.textDim),
+                            ),
+                            if (onDelete != null)
+                              SizedBox(
+                                width: 28,
+                                height: 20,
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  iconSize: 18,
+                                  tooltip: 'Delete match',
+                                  color: AppColors.textDim,
+                                  icon: const Icon(Icons.delete_outline),
+                                  onPressed: onDelete,
+                                ),
+                              ),
+                          ],
                         ),
                       ],
                     ),

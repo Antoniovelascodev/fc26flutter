@@ -5,6 +5,13 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
+// Column widths. Kept tight so all columns fit on a 360px-wide phone.
+const double _wPos = 20;
+const double _wMark = 10;
+const double _wStat = 24;
+const double _wDiff = 32;
+const double _wPts = 38;
+
 class RankingScreen extends StatefulWidget {
   const RankingScreen({super.key});
 
@@ -62,27 +69,33 @@ class _RankingScreenState extends State<RankingScreen> {
             message: 'Save the first match in New match and the table starts here.',
           );
         }
-        // Every match is counted once per team, so the total is halved.
-        final matchCount =
-            entries.fold<int>(0, (sum, e) => sum + e.matchesPlayed) ~/ 2;
+      
 
         return RefreshIndicator(
           onRefresh: _onRefresh,
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            itemCount: entries.length + 1,
-            itemBuilder: (context, i) {
-              if (i == 0) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 14, left: 2),
-                  child: Text(
-                    matchCount == 1 ? '1 match played' : '$matchCount matches played',
-                    style: const TextStyle(color: AppColors.textDim),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
+            children: [
+              Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 640),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _LeagueTable(entries: entries),
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(10, 14, 10, 0),
+                        child: Text(
+                          'P -> Played\nW -> Won\nD -> Drawn\nL -> Lost\nGF -> Goals Favor\nGA -> Goals Against\nGD -> Goal Difference',
+                          style: TextStyle(fontSize: 12, color: AppColors.textDim, height: 1.4),
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              }
-              return _TableRow(position: i, entry: entries[i - 1]);
-            },
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -90,11 +103,97 @@ class _RankingScreenState extends State<RankingScreen> {
   }
 }
 
-class _TableRow extends StatelessWidget {
+class _LeagueTable extends StatelessWidget {
+  final List<RankingEntry> entries;
+
+  const _LeagueTable({required this.entries});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        children: [
+          const _HeaderRow(),
+          for (var i = 0; i < entries.length; i++) ...[
+            const Divider(height: 1),
+            _DataRow(position: i + 1, entry: entries[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+TextStyle get _headerStyle => const TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: AppColors.textDim,
+    );
+
+class _HeaderRow extends StatelessWidget {
+  const _HeaderRow();
+
+  Widget _h(String label, double width, {bool strong = false}) => SizedBox(
+        width: width,
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: strong
+              ? _headerStyle.copyWith(color: AppColors.text, fontWeight: FontWeight.w800)
+              : _headerStyle,
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+      child: Row(
+        children: [
+          const SizedBox(width: _wPos + _wMark),
+          Expanded(child: Text('Team', style: _headerStyle)),
+          _h('P', _wStat),
+          _h('W', _wStat),
+          _h('D', _wStat),
+          _h('L', _wStat),
+          _h('GF', _wStat),
+          _h('GA', _wStat),
+          _h('GD', _wDiff),
+          _h('Pts', _wPts, strong: true),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataRow extends StatelessWidget {
   final int position;
   final RankingEntry entry;
 
-  const _TableRow({required this.position, required this.entry});
+  const _DataRow({required this.position, required this.entry});
+
+  Widget _num(Object value, double width, {Color color = AppColors.text}) {
+    return SizedBox(
+      width: width,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          '$value',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: color,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,108 +203,61 @@ class _TableRow extends StatelessWidget {
     final gdText = gd > 0 ? '+$gd' : '$gd';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: leader ? teamWash(color) : AppColors.surface,
-        borderRadius: BorderRadius.circular(leader ? 22 : 14),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(width: leader ? 9 : 5, color: color),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(14, leader ? 18 : 12, 16, leader ? 18 : 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: leader ? 38 : 30,
-                      child: Text(
-                        '$position',
-                        style: displayStyle(
-                          size: leader ? 44 : 30,
-                          color: leader ? AppColors.text : AppColors.textDim,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            entry.teamName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: displayStyle(size: leader ? 38 : 27),
-                          ),
-                          SizedBox(height: leader ? 10 : 8),
-                          RecordBar(
-                            wins: entry.wins,
-                            draws: entry.draws,
-                            losses: entry.losses,
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 14,
-                            runSpacing: 2,
-                            children: [
-                              _Stat(entry.matchesPlayed, 'played'),
-                              _Stat(entry.wins, 'won'),
-                              _Stat(entry.draws, 'drawn'),
-                              _Stat(entry.losses, 'lost'),
-                              _Stat(gdText, 'goal diff'),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${entry.points}',
-                          style: displayStyle(size: leader ? 72 : 44, weight: FontWeight.w900),
-                        ),
-                        const Text(
-                          'pts',
-                          style: TextStyle(fontSize: 12, color: AppColors.textDim),
-                        ),
-                      ],
-                    ),
-                  ],
+      color: leader ? teamWash(color, strength: 40) : Colors.transparent,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      child: Row(
+        children: [
+          SizedBox(
+            width: _wPos,
+            child: Text(
+              '$position',
+              style: displayStyle(
+                size: 24,
+                color: leader ? AppColors.text : AppColors.textDim,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: _wMark,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                width: 4,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  final Object value;
-  final String label;
-
-  const _Stat(this.value, this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: '$value ',
-            style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.text),
           ),
-          TextSpan(text: label, style: const TextStyle(color: AppColors.textDim)),
+          Expanded(
+            child: Text(
+              entry.teamName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: displayStyle(size: 25),
+            ),
+          ),
+          _num(entry.matchesPlayed, _wStat),
+          _num(entry.wins, _wStat),
+          _num(entry.draws, _wStat),
+          _num(entry.losses, _wStat),
+          _num(entry.goalsFor, _wStat),
+          _num(entry.goalsAgainst, _wStat),
+          _num(gdText, _wDiff, color: gd < 0 ? AppColors.textDim : AppColors.text),
+          SizedBox(
+            width: _wPts,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '${entry.points}',
+                style: displayStyle(size: 28, weight: FontWeight.w900),
+              ),
+            ),
+          ),
         ],
       ),
-      style: const TextStyle(fontSize: 12),
     );
   }
 }

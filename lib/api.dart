@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
 
@@ -31,6 +33,9 @@ String get baseUrl {
 final ValueNotifier<int> dataVersion = ValueNotifier<int>(0);
 void notifyDataChanged() => dataVersion.value++;
 
+/// true while a request is taking suspiciously long (the free server is waking up).
+final ValueNotifier<bool> waking = ValueNotifier<bool>(false);
+
 class ApiException implements Exception {
   final String message;
   ApiException(this.message);
@@ -40,46 +45,116 @@ class ApiException implements Exception {
 }
 
 class Api {
-  static const _jsonHeaders = {'Content-Type': 'application/json; charset=utf-8'};
-  static const _timeout = Duration(seconds: 10);
+  // Long enough for a sleeping free server (it can take about a minute).
+  static const _timeout = Duration(seconds: 75);
+  static const _prefsKey = 'api_key';
+
+  // ---- Shared access key (sent as X-API-Key on every request) ----
+  static String _apiKey = '';
+
+  static String get apiKey => _apiKey;
+  static bool get hasKey => _apiKey.isNotEmpty;
+
+  /// Call once at startup, before runApp.
+  static Future<void> loadKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _apiKey = prefs.getString(_prefsKey) ?? '';
+    } catch (_) {
+      _apiKey = '';
+    }
+  }
+
+  static Future<void> saveKey(String key) async {
+    _apiKey = key.trim();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefsKey, _apiKey);
+    } catch (_) {
+      // The key still works for this session.
+    }
+  }
+
+  static Map<String, String> get _headers => {
+        'Content-Type': 'application/json; charset=utf-8',
+        if (_apiKey.isNotEmpty) 'X-API-Key': _apiKey,
+      };
 
   static Future<void> _latency() =>
       Future.delayed(const Duration(milliseconds: 150));
 
   static dynamic _decode(http.Response r) {
     if (r.statusCode < 200 || r.statusCode >= 300) {
-      throw ApiException('Server error (${r.statusCode})');
+      if (r.statusCode == 401) {
+        throw ApiException(
+            'Access key missing or wrong. Tap the key icon (top right) to set it.');
+      }
+      String? message;
+      try {
+        final body = jsonDecode(utf8.decode(r.bodyBytes));
+        if (body is Map && body['message'] is String) {
+          message = body['message'] as String;
+        }
+      } catch (_) {
+        // Not JSON: use the generic message below.
+      }
+      if (message == null || message.trim().isEmpty) {
+        message = 'Server error (${r.statusCode})';
+      }
+      throw ApiException(message);
     }
     if (r.bodyBytes.isEmpty) return null;
     return jsonDecode(utf8.decode(r.bodyBytes));
   }
 
-  static Future<dynamic> _get(String path) async {
+  /// Runs one HTTP call. If it takes more than a few seconds the free server is
+  /// probably waking up, so [waking] turns on and the UI explains the wait.
+  static Future<dynamic> _send(Future<http.Response> Function() call) async {
+    final timer = Timer(const Duration(seconds: 4), () => waking.value = true);
     try {
-      final r = await http.get(Uri.parse('$baseUrl$path')).timeout(_timeout);
-      return _decode(r);
+      return _decode(await call().timeout(_timeout));
     } on ApiException {
       rethrow;
     } catch (_) {
       throw ApiException('Cannot reach the server. Is the API running?');
+    } finally {
+      timer.cancel();
+      waking.value = false;
     }
   }
 
-  static Future<dynamic> _post(String path, Map<String, dynamic> body) async {
-    try {
-      final r = await http
-          .post(
+  static Future<dynamic> _get(String path) =>
+      _send(() => http.get(Uri.parse('$baseUrl$path'), headers: _headers));
+
+  static Future<dynamic> _post(String path, Map<String, dynamic> body) =>
+      _send(() => http.post(
             Uri.parse('$baseUrl$path'),
-            headers: _jsonHeaders,
+            headers: _headers,
             body: utf8.encode(jsonEncode(body)),
-          )
-          .timeout(_timeout);
-      return _decode(r);
-    } on ApiException {
-      rethrow;
+          ));
+
+  static Future<dynamic> _delete(String path) =>
+      _send(() => http.delete(Uri.parse('$baseUrl$path'), headers: _headers));
+
+  /// Wakes the server up as soon as the app opens, so the first real request
+  /// does not have to wait for it.
+  static Future<void> warmUp() async {
+    if (demoMode) return;
+    try {
+      await _get('/health');
     } catch (_) {
-      throw ApiException('Cannot reach the server. Is the API running?');
+      // Real requests report their own errors.
     }
+  }
+
+  /// All data as pretty JSON text (needs the access key).
+  static Future<String> exportBackup() async {
+    if (demoMode) {
+      await _latency();
+      return '{"demo": true}';
+    }
+    final data = await _get('/admin/export');
+    return const JsonEncoder.withIndent('  ').convert(data);
   }
 
   // ---- Teams ----
@@ -150,6 +225,15 @@ class Api {
       'awayGoals': awayGoals,
       'leagueId': leagueId,
     });
+  }
+
+  static Future<void> deleteMatch(int id) async {
+    if (demoMode) {
+      await _latency();
+      _Demo.matches.removeWhere((m) => m.id == id);
+      return;
+    }
+    await _delete('/matches/$id');
   }
 
   static Future<List<MatchItem>> matchesByLeague(int leagueId) async {

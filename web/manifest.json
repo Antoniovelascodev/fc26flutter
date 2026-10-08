@@ -1,11 +1,11 @@
 {
-    "name": "fc26flutter",
-    "short_name": "fc26flutter",
+    "name": "FC26 MegaLigue",
+    "short_name": "MegaLigue",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0C1226",
+    "theme_color": "#0C1226",
+    "description": "FC26 leagues among friends",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
