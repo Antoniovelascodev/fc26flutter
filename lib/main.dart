@@ -45,6 +45,7 @@ class _HomeShellState extends State<HomeShell> {
 
   Future<void> _editKey() async {
     final controller = TextEditingController(text: Api.apiKey);
+    final adminController = TextEditingController(text: Api.adminKey);
     final key = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -65,12 +66,23 @@ class _HomeShellState extends State<HomeShell> {
               autofocus: true,
               decoration: const InputDecoration(labelText: 'Access key'),
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: adminController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Admin key (only the owner, optional)',
+              ),
+            ),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            onPressed: () async {
+              await Api.saveAdminKey(adminController.text);
+              if (ctx.mounted) Navigator.pop(ctx, controller.text.trim());
+            },
             child: const Text('Save key'),
           ),
         ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../models.dart';
+import '../pin_dialogs.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'squad_builder_screen.dart';
@@ -84,6 +85,11 @@ class _SquadsScreenState extends State<SquadsScreen> {
   }
 
   Future<void> _open(Squad squad) async {
+    if (squad.locked) {
+      final team = _team;
+      if (team != null) await unlockTeam(context, team);
+      return;
+    }
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => SquadBuilderScreen(squad: squad)),
     );
@@ -92,10 +98,13 @@ class _SquadsScreenState extends State<SquadsScreen> {
     }
   }
 
-  void _createSquad(int existing) {
+  Future<void> _createSquad(int existing) async {
     final team = _team;
     final league = _league;
     if (team == null || league == null) return;
+    // Every team protects its squads with a PIN before creating the first one.
+    if (!await ensureTeamPin(context, team)) return;
+    if (!mounted) return;
     _open(Squad(
       leagueId: league.id,
       teamId: team.id,
@@ -148,7 +157,16 @@ class _SquadsScreenState extends State<SquadsScreen> {
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
                     avatar: CircleAvatar(radius: 6, backgroundColor: teamColor(t.name)),
-                    label: Text(t.name),
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(t.name),
+                        if (t.hasPin) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.lock, size: 14, color: AppColors.textDim),
+                        ],
+                      ],
+                    ),
                     selected: t.id == _teamId,
                     showCheckmark: false,
                     selectedColor: teamWash(teamColor(t.name), strength: 90),
@@ -167,7 +185,20 @@ class _SquadsScreenState extends State<SquadsScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        if (_team != null && _team!.hasPin && Api.pinOf(_team!.id) != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: TextButton.icon(
+                onPressed: () => changeTeamPin(context, _team!),
+                icon: const Icon(Icons.lock_outline, size: 16),
+                label: Text('Change PIN of ${_team!.name}'),
+              ),
+            ),
+          )
+        else
+          const SizedBox(height: 14),
         Expanded(
           child: FutureBuilder<List<Squad>>(
             future: _squads,
@@ -231,6 +262,44 @@ class _SquadCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = teamColor(squad.teamName);
     final starters = squad.starters.length;
+    if (squad.locked) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Material(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 5,
+                    height: 40,
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                  const Icon(Icons.lock, color: AppColors.textDim),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'This squad is hidden until the squads of the league are revealed. '
+                      'Tap to enter the PIN if it is yours.',
+                      style: TextStyle(color: AppColors.textDim, fontSize: 12, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(

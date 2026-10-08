@@ -4,6 +4,7 @@ import '../api.dart';
 import '../async_view.dart';
 import '../best_xi.dart';
 import '../models.dart';
+import '../pin_dialogs.dart';
 import '../player_widgets.dart';
 import '../stats_widgets.dart';
 import '../theme.dart';
@@ -299,7 +300,37 @@ class _TeamsTab extends StatelessWidget {
     return _TeamsData(results[0] as List<Team>, results[1] as List<Squad>);
   }
 
+  Future<void> _reveal(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Reveal all squads?', style: displayStyle(size: 28)),
+        content: Text(
+          'Everyone will be able to see the squads of every team in "${league.name}". '
+          'It cannot be hidden again. Do it when everybody has chosen their players.',
+          style: const TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not yet')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Reveal squads')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await Api.revealLeague(league.id);
+      notifyDataChanged();
+    } catch (e) {
+      if (context.mounted) _toast(context, e.toString());
+    }
+  }
+
   Future<void> _open(BuildContext context, Squad squad) async {
+    if (squad.locked) {
+      _toast(context, 'Hidden until the squads are revealed. Unlock your own team in the Squads tab.');
+      return;
+    }
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => SquadBuilderScreen(squad: squad)),
     );
@@ -315,23 +346,61 @@ class _TeamsTab extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
           children: [
+            if (!league.squadsRevealed)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.line),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.lock, size: 18, color: AppColors.textDim),
+                        SizedBox(width: 8),
+                        Text('Squads are hidden',
+                            style: TextStyle(fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Each team only sees its own squad (with its PIN). Reveal them all when '
+                      'everybody has chosen their players.',
+                      style: TextStyle(color: AppColors.textDim, fontSize: 12, height: 1.4),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: () => _reveal(context),
+                      child: const Text('Reveal squads'),
+                    ),
+                  ],
+                ),
+              ),
             for (final team in data.teams) ...[
               _TeamSquadCard(
                 team: team,
                 squad: _activeOf(data.squads, team.id),
                 total: data.squads.where((s) => s.teamId == team.id).length,
                 onOpen: (squad) => _open(context, squad),
-                onCreate: () => _open(
-                  context,
-                  Squad(
-                    leagueId: league.id,
-                    teamId: team.id,
-                    teamName: team.name,
-                    leagueName: league.name,
-                    name: 'Main squad',
-                    formation: '4-3-3',
-                  ),
-                ),
+                onCreate: () async {
+                  if (!await ensureTeamPin(context, team)) return;
+                  if (!context.mounted) return;
+                  await _open(
+                    context,
+                    Squad(
+                      leagueId: league.id,
+                      teamId: team.id,
+                      teamName: team.name,
+                      leagueName: league.name,
+                      name: 'Main squad',
+                      formation: '4-3-3',
+                    ),
+                  );
+                },
               ),
             ],
           ],
@@ -394,7 +463,9 @@ class _TeamSquadCard extends StatelessWidget {
                             Text(
                               s == null
                                   ? 'No squad yet. Tap to build one.'
-                                  : '${s.name}  ·  ${s.formation}  ·  ${s.starters.length}/11 starters'
+                                  : s.locked
+                                      ? 'Hidden until the squads are revealed'
+                                      : '${s.name}  ·  ${s.formation}  ·  ${s.starters.length}/11 starters'
                                       '${total > 1 ? '  ·  $total squads' : ''}',
                               style: const TextStyle(color: AppColors.textDim, fontSize: 12),
                             ),

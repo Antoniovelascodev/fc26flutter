@@ -216,28 +216,25 @@ class _FiltersSheetState extends State<_FiltersSheet> {
   }
 
   Widget _minChips(String label, int? value, ValueChanged<int?> onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
         Text(label, style: const TextStyle(color: AppColors.textDim)),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 8,
-          children: [
-            for (var n = 1; n <= 5; n++)
-              ChoiceChip(
-                label: Text('$n+'),
-                selected: value == n,
-                showCheckmark: false,
-                visualDensity: VisualDensity.compact,
-                selectedColor: AppColors.text,
-                labelStyle: TextStyle(color: value == n ? AppColors.ink : AppColors.text),
-                backgroundColor: AppColors.surfaceHi,
-                side: BorderSide.none,
-                onSelected: (sel) => setState(() => onChanged(sel ? n : null)),
-              ),
-          ],
-        ),
+        const Spacer(),
+        for (var n = 1; n <= 5; n++)
+          Padding(
+            padding: const EdgeInsets.only(left: 6),
+            child: ChoiceChip(
+              label: Text('$n+'),
+              selected: value == n,
+              showCheckmark: false,
+              visualDensity: VisualDensity.compact,
+              selectedColor: AppColors.text,
+              labelStyle: TextStyle(color: value == n ? AppColors.ink : AppColors.text),
+              backgroundColor: AppColors.surfaceHi,
+              side: BorderSide.none,
+              onSelected: (sel) => setState(() => onChanged(sel ? n : null)),
+            ),
+          ),
       ],
     );
   }
@@ -414,17 +411,21 @@ class _FiltersSheetState extends State<_FiltersSheet> {
                 const SizedBox(height: 6),
                 _minChips('Skill moves', f.minSkillMoves, (v) => f.minSkillMoves = v),
                 const SizedBox(height: 12),
-                const Text('Preferred foot', style: TextStyle(color: AppColors.textDim)),
-                const SizedBox(height: 6),
-                SegmentedButton<String>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: '', label: Text('Any')),
-                    ButtonSegment(value: 'Left', label: Text('Left')),
-                    ButtonSegment(value: 'Right', label: Text('Right')),
+                Row(
+                  children: [
+                    const Text('Preferred foot', style: TextStyle(color: AppColors.textDim)),
+                    const Spacer(),
+                    SegmentedButton<String>(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(value: '', label: Text('Any')),
+                        ButtonSegment(value: 'Left', label: Text('Left')),
+                        ButtonSegment(value: 'Right', label: Text('Right')),
+                      ],
+                      selected: {f.foot},
+                      onSelectionChanged: (s) => setState(() => f.foot = s.first),
+                    ),
                   ],
-                  selected: {f.foot},
-                  onSelectionChanged: (s) => setState(() => f.foot = s.first),
                 ),
                 _title('League and country'),
                 DropdownButtonFormField<String>(

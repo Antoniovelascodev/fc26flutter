@@ -4,10 +4,16 @@ class Team {
   final int id;
   final String name;
 
-  Team({required this.id, required this.name});
+  /// true when the team has a PIN protecting its squads.
+  final bool hasPin;
 
-  factory Team.fromJson(Map<String, dynamic> j) =>
-      Team(id: _toInt(j['id']), name: j['name'] as String? ?? '');
+  Team({required this.id, required this.name, this.hasPin = false});
+
+  factory Team.fromJson(Map<String, dynamic> j) => Team(
+        id: _toInt(j['id']),
+        name: j['name'] as String? ?? '',
+        hasPin: j['hasPin'] == true,
+      );
 }
 
 class League {
@@ -15,12 +21,21 @@ class League {
   final String name;
   final String? description;
 
-  League({required this.id, required this.name, this.description});
+  /// false = the squads of each team are hidden from the others for now.
+  final bool squadsRevealed;
+
+  League({
+    required this.id,
+    required this.name,
+    this.description,
+    this.squadsRevealed = true,
+  });
 
   factory League.fromJson(Map<String, dynamic> j) => League(
         id: _toInt(j['id']),
         name: j['name'] as String? ?? '',
         description: j['description'] as String?,
+        squadsRevealed: j['squadsRevealed'] != false,
       );
 }
 
@@ -448,6 +463,9 @@ class Squad {
   bool active;
   Map<int, Player> slots;
 
+  /// true when the squad is hidden from this device (its owner's PIN is not known here).
+  final bool locked;
+
   Squad({
     this.id,
     required this.leagueId,
@@ -458,6 +476,7 @@ class Squad {
     required this.formation,
     this.active = false,
     Map<int, Player>? slots,
+    this.locked = false,
   }) : slots = slots ?? {};
 
   factory Squad.fromJson(Map<String, dynamic> j) => Squad(
@@ -469,6 +488,7 @@ class Squad {
         name: j['name'] as String? ?? '',
         formation: j['formation'] as String? ?? '4-3-3',
         active: j['active'] as bool? ?? false,
+        locked: j['locked'] == true,
         slots: {
           for (final s in (j['slots'] as List? ?? []))
             _toInt((s as Map)['slot']):

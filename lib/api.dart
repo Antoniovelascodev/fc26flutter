@@ -61,6 +61,12 @@ class Api {
     try {
       final prefs = await SharedPreferences.getInstance();
       _apiKey = prefs.getString(_prefsKey) ?? '';
+      _adminKey = prefs.getString('admin_key') ?? '';
+      final raw = prefs.getString('team_pins');
+      if (raw != null) {
+        final map = jsonDecode(raw) as Map<String, dynamic>;
+        map.forEach((k, v) => _pins[int.parse(k)] = v as String);
+      }
     } catch (_) {
       _apiKey = '';
     }
@@ -76,9 +82,70 @@ class Api {
     }
   }
 
+  // ---- Owner-only admin key (backups, imports) ----
+  static String _adminKey = '';
+
+  static String get adminKey => _adminKey;
+
+  static Future<void> saveAdminKey(String key) async {
+    _adminKey = key.trim();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('admin_key', _adminKey);
+    } catch (_) {
+      // Still works for this session.
+    }
+  }
+
+  // ---- Team PINs known on this device (team id -> PIN) ----
+  static final Map<int, String> _pins = {};
+
+  static String? pinOf(int teamId) => _pins[teamId];
+
+  static Future<void> _savePins() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('team_pins', jsonEncode(_pins.map((k, v) => MapEntry('$k', v))));
+    } catch (_) {
+      // Still works for this session.
+    }
+  }
+
+  /// Sets the PIN of a team (or changes it when [currentPin] is given) and remembers it.
+  static Future<void> setTeamPin(int teamId, String newPin, {String? currentPin}) async {
+    if (!demoMode) {
+      await _post('/teams/$teamId/pin', {'currentPin': currentPin, 'newPin': newPin});
+    }
+    _pins[teamId] = newPin;
+    await _savePins();
+  }
+
+  /// Checks the PIN with the server and remembers it on this device if it is right.
+  static Future<void> unlockTeam(int teamId, String pin) async {
+    if (!demoMode) {
+      await _post('/teams/$teamId/pin/check', {'pin': pin});
+    }
+    _pins[teamId] = pin;
+    await _savePins();
+  }
+
+  static Future<void> forgetTeamPin(int teamId) async {
+    _pins.remove(teamId);
+    await _savePins();
+  }
+
+  /// Makes every squad of the league visible to everyone.
+  static Future<void> revealLeague(int leagueId) async {
+    if (demoMode) return;
+    await _post('/leagues/$leagueId/reveal', {});
+  }
+
   static Map<String, String> get _headers => {
         'Content-Type': 'application/json; charset=utf-8',
         if (_apiKey.isNotEmpty) 'X-API-Key': _apiKey,
+        if (_adminKey.isNotEmpty) 'X-Admin-Key': _adminKey,
+        if (_pins.isNotEmpty)
+          'X-Team-Pins': _pins.entries.map((e) => '${e.key}:${e.value}').join(','),
       };
 
   static Future<void> _latency() =>
