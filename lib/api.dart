@@ -204,6 +204,36 @@ class Api {
     await _post('/leagues', {'name': name, 'description': ''});
   }
 
+  /// How many matches, squads and ratings deleting the league would remove.
+  static Future<({int matches, int squads, int ratings})> leagueImpact(int id) async {
+    if (demoMode) {
+      await _latency();
+      return (
+        matches: _Demo.matches.where((m) => m.leagueId == id).length,
+        squads: _Demo.squads.where((s) => s.leagueId == id).length,
+        ratings: 0,
+      );
+    }
+    final data = await _get('/leagues/$id/impact') as Map<String, dynamic>;
+    return (
+      matches: (data['matches'] as num).toInt(),
+      squads: (data['squads'] as num).toInt(),
+      ratings: (data['ratings'] as num).toInt(),
+    );
+  }
+
+  /// Deletes the league and everything in it (matches, scorers, squads, ratings).
+  static Future<void> deleteLeague(int id) async {
+    if (demoMode) {
+      await _latency();
+      _Demo.matches.removeWhere((m) => m.leagueId == id);
+      _Demo.squads.removeWhere((s) => s.leagueId == id);
+      _Demo.leagues.removeWhere((l) => l.id == id);
+      return;
+    }
+    await _delete('/leagues/$id?cascade=true');
+  }
+
   // ---- Matches ----
   static Future<void> createMatch({
     required int homeTeamId,

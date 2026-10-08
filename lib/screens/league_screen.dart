@@ -59,6 +59,33 @@ class _LeagueScreenState extends State<LeagueScreen> {
     }
   }
 
+  /// Two steps: see what will be lost, then type the league name to confirm.
+  Future<void> _deleteLeague(League league) async {
+    ({int matches, int squads, int ratings}) impact;
+    try {
+      impact = await Api.leagueImpact(league.id);
+    } catch (e) {
+      if (!mounted) return;
+      _toast(context, e.toString());
+      return;
+    }
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _DeleteLeagueDialog(league: league, impact: impact),
+    );
+    if (confirmed != true) return;
+    try {
+      await Api.deleteLeague(league.id);
+      notifyDataChanged();
+      if (!mounted) return;
+      _toast(context, 'League "${league.name}" deleted');
+    } catch (e) {
+      if (!mounted) return;
+      _toast(context, e.toString());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -85,10 +112,29 @@ class _LeagueScreenState extends State<LeagueScreen> {
       length: 5,
       child: Column(
         children: [
-          LeagueChips(
-            leagues: _leagues,
-            selectedId: _leagueId,
-            onSelected: (id) => setState(() => _leagueId = id),
+          Row(
+            children: [
+              Expanded(
+                child: LeagueChips(
+                  leagues: _leagues,
+                  selectedId: _leagueId,
+                  onSelected: (id) => setState(() => _leagueId = id),
+                ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'League options',
+                icon: const Icon(Icons.more_vert, color: AppColors.textDim),
+                onSelected: (v) {
+                  if (v == 'delete') _deleteLeague(league);
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Delete this league…'),
+                  ),
+                ],
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           const TabBar(
@@ -537,6 +583,82 @@ class _RatingSheetState extends State<_RatingSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _DeleteLeagueDialog extends StatefulWidget {
+  final League league;
+  final ({int matches, int squads, int ratings}) impact;
+
+  const _DeleteLeagueDialog({required this.league, required this.impact});
+
+  @override
+  State<_DeleteLeagueDialog> createState() => _DeleteLeagueDialogState();
+}
+
+class _DeleteLeagueDialogState extends State<_DeleteLeagueDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String _plural(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
+
+  @override
+  Widget build(BuildContext context) {
+    final i = widget.impact;
+    final empty = i.matches == 0 && i.squads == 0 && i.ratings == 0;
+    final matches = _controller.text.trim() == widget.league.name;
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text('Delete "${widget.league.name}"?', style: displayStyle(size: 28)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            empty
+                ? 'This league is empty, nothing else will be lost.'
+                : 'This will permanently delete the league together with '
+                    '${_plural(i.matches, 'match')} (and their scorers), '
+                    '${_plural(i.squads, 'squad')} and ${_plural(i.ratings, 'player rating')}. '
+                    'The MegaLeague table is recalculated without those matches.',
+            style: const TextStyle(height: 1.4),
+          ),
+          if (!empty) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'There is no undo. Tip: download a backup first (download icon, top right).',
+              style: TextStyle(color: AppColors.textDim, fontSize: 12, height: 1.4),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Text('Type the league name to confirm:',
+              style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(hintText: widget.league.name),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Keep league'),
+        ),
+        TextButton(
+          onPressed: matches ? () => Navigator.pop(context, true) : null,
+          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          child: const Text('Delete league'),
+        ),
+      ],
     );
   }
 }
