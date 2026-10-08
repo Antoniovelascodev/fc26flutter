@@ -128,3 +128,224 @@ class HeadToHead {
             .toList(),
       );
 }
+
+int? _toIntN(dynamic v) => (v as num?)?.toInt();
+
+/// A real FC 26 player from the imported database.
+class Player {
+  final int id;
+  final String shortName;
+  final String longName;
+  final String positions; // "CAM, CM"
+  final int overall;
+  final int potential;
+  final int? valueEur;
+  final int? age;
+  final String clubName;
+  final String leagueName;
+  final String nationalityName;
+  final String preferredFoot;
+  final int? weakFoot;
+  final int? skillMoves;
+  final int? heightCm;
+  final int? pace;
+  final int? shooting;
+  final int? passing;
+  final int? dribbling;
+  final int? defending;
+  final int? physic;
+  final int? gkDiving;
+  final int? gkHandling;
+  final int? gkKicking;
+  final int? gkPositioning;
+  final int? gkReflexes;
+  final int? gkSpeed;
+
+  Player({
+    required this.id,
+    required this.shortName,
+    required this.longName,
+    required this.positions,
+    required this.overall,
+    required this.potential,
+    this.valueEur,
+    this.age,
+    this.clubName = '',
+    this.leagueName = '',
+    this.nationalityName = '',
+    this.preferredFoot = '',
+    this.weakFoot,
+    this.skillMoves,
+    this.heightCm,
+    this.pace,
+    this.shooting,
+    this.passing,
+    this.dribbling,
+    this.defending,
+    this.physic,
+    this.gkDiving,
+    this.gkHandling,
+    this.gkKicking,
+    this.gkPositioning,
+    this.gkReflexes,
+    this.gkSpeed,
+  });
+
+  factory Player.fromJson(Map<String, dynamic> j) => Player(
+        id: _toInt(j['id']),
+        shortName: j['shortName'] as String? ?? '',
+        longName: j['longName'] as String? ?? '',
+        positions: j['positions'] as String? ?? '',
+        overall: _toInt(j['overall']),
+        potential: _toInt(j['potential']),
+        valueEur: _toIntN(j['valueEur']),
+        age: _toIntN(j['age']),
+        clubName: j['clubName'] as String? ?? '',
+        leagueName: j['leagueName'] as String? ?? '',
+        nationalityName: j['nationalityName'] as String? ?? '',
+        preferredFoot: j['preferredFoot'] as String? ?? '',
+        weakFoot: _toIntN(j['weakFoot']),
+        skillMoves: _toIntN(j['skillMoves']),
+        heightCm: _toIntN(j['heightCm']),
+        pace: _toIntN(j['pace']),
+        shooting: _toIntN(j['shooting']),
+        passing: _toIntN(j['passing']),
+        dribbling: _toIntN(j['dribbling']),
+        defending: _toIntN(j['defending']),
+        physic: _toIntN(j['physic']),
+        gkDiving: _toIntN(j['gkDiving']),
+        gkHandling: _toIntN(j['gkHandling']),
+        gkKicking: _toIntN(j['gkKicking']),
+        gkPositioning: _toIntN(j['gkPositioning']),
+        gkReflexes: _toIntN(j['gkReflexes']),
+        gkSpeed: _toIntN(j['gkSpeed']),
+      );
+
+  List<String> get positionList => positions
+      .split(',')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList();
+
+  String get mainPosition => positionList.isEmpty ? '' : positionList.first;
+
+  bool get isGoalkeeper => mainPosition == 'GK';
+
+  bool canPlay(String position) => positionList.contains(position);
+
+  /// The six headline stats, as (label, value). Goalkeepers get their own six.
+  List<(String, int?)> get headlineStats => isGoalkeeper
+      ? [
+          ('DIV', gkDiving),
+          ('HAN', gkHandling),
+          ('KIC', gkKicking),
+          ('REF', gkReflexes),
+          ('SPD', gkSpeed),
+          ('POS', gkPositioning),
+        ]
+      : [
+          ('PAC', pace),
+          ('SHO', shooting),
+          ('PAS', passing),
+          ('DRI', dribbling),
+          ('DEF', defending),
+          ('PHY', physic),
+        ];
+}
+
+/// "€12.5M", "€800K"
+String formatValue(int? eur) {
+  if (eur == null || eur <= 0) return '-';
+  if (eur >= 1000000) {
+    final m = eur / 1000000;
+    final text = m >= 100 ? m.toStringAsFixed(0) : m.toStringAsFixed(1);
+    return '€${text.endsWith('.0') ? text.substring(0, text.length - 2) : text}M';
+  }
+  return '€${(eur / 1000).round()}K';
+}
+
+class PlayerPage {
+  final List<Player> players;
+  final bool hasNext;
+  final int total;
+
+  PlayerPage({required this.players, required this.hasNext, required this.total});
+
+  factory PlayerPage.fromJson(Map<String, dynamic> j) => PlayerPage(
+        players: ((j['content'] as List?) ?? [])
+            .map((e) => Player.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        hasNext: j['hasNext'] as bool? ?? false,
+        total: _toInt(j['total']),
+      );
+}
+
+/// Starting XI (slots 0-10, in the order of the formation) + bench (11+).
+class Squad {
+  static const int benchStart = 11;
+  static const int benchSize = 7;
+
+  final int? id;
+  final int leagueId;
+  final int teamId;
+  final String teamName;
+  final String leagueName;
+  String name;
+  String formation;
+  bool active;
+  Map<int, Player> slots;
+
+  Squad({
+    this.id,
+    required this.leagueId,
+    required this.teamId,
+    this.teamName = '',
+    this.leagueName = '',
+    required this.name,
+    required this.formation,
+    this.active = false,
+    Map<int, Player>? slots,
+  }) : slots = slots ?? {};
+
+  factory Squad.fromJson(Map<String, dynamic> j) => Squad(
+        id: _toInt(j['id']),
+        leagueId: _toInt(j['leagueId']),
+        teamId: _toInt(j['teamId']),
+        teamName: j['teamName'] as String? ?? '',
+        leagueName: j['leagueName'] as String? ?? '',
+        name: j['name'] as String? ?? '',
+        formation: j['formation'] as String? ?? '4-3-3',
+        active: j['active'] as bool? ?? false,
+        slots: {
+          for (final s in (j['slots'] as List? ?? []))
+            _toInt((s as Map)['slot']):
+                Player.fromJson(s['player'] as Map<String, dynamic>),
+        },
+      );
+
+  List<Player> get starters => [
+        for (var i = 0; i < benchStart; i++)
+          if (slots[i] != null) slots[i]!,
+      ];
+
+  List<Player> get bench => [
+        for (final e in slots.entries)
+          if (e.key >= benchStart) e.value,
+      ];
+
+  /// Average overall of the starters (0 if none).
+  double get averageOverall {
+    final s = starters;
+    if (s.isEmpty) return 0;
+    return s.fold<int>(0, (a, p) => a + p.overall) / s.length;
+  }
+
+  int get totalValue =>
+      slots.values.fold<int>(0, (a, p) => a + (p.valueEur ?? 0));
+
+  double get averageAge {
+    final ages = slots.values.map((p) => p.age).whereType<int>().toList();
+    if (ages.isEmpty) return 0;
+    return ages.reduce((a, b) => a + b) / ages.length;
+  }
+}

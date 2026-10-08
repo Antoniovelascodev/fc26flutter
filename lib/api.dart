@@ -133,6 +133,13 @@ class Api {
             body: utf8.encode(jsonEncode(body)),
           ));
 
+  static Future<dynamic> _put(String path, Map<String, dynamic> body) =>
+      _send(() => http.put(
+            Uri.parse('$baseUrl$path'),
+            headers: _headers,
+            body: utf8.encode(jsonEncode(body)),
+          ));
+
   static Future<dynamic> _delete(String path) =>
       _send(() => http.delete(Uri.parse('$baseUrl$path'), headers: _headers));
 
@@ -264,6 +271,82 @@ class Api {
     return HeadToHead.fromJson(data as Map<String, dynamic>);
   }
 
+  // ---- Players ----
+  static Future<PlayerPage> searchPlayers({
+    String q = '',
+    String position = '',
+    String league = '',
+    int minOverall = 0,
+    String sort = 'overall',
+    int page = 0,
+  }) async {
+    if (demoMode) {
+      await _latency();
+      return _Demo.searchPlayers(q, position, sort, page);
+    }
+    final query = Uri(queryParameters: {
+      'q': q,
+      'position': position,
+      'league': league,
+      'minOverall': '$minOverall',
+      'sort': sort,
+      'page': '$page',
+      'size': '20',
+    }).query;
+    final data = await _get('/players?$query');
+    return PlayerPage.fromJson(data as Map<String, dynamic>);
+  }
+
+  // ---- Squads ----
+  static Future<List<Squad>> squads({int? leagueId, int? teamId}) async {
+    if (demoMode) {
+      await _latency();
+      return _Demo.squads
+          .where((s) =>
+              (leagueId == null || s.leagueId == leagueId) &&
+              (teamId == null || s.teamId == teamId))
+          .toList();
+    }
+    final params = <String, String>{
+      if (leagueId != null) 'leagueId': '$leagueId',
+      if (teamId != null) 'teamId': '$teamId',
+    };
+    final query = params.isEmpty ? '' : '?${Uri(queryParameters: params).query}';
+    final data = await _get('/squads$query') as List;
+    return data.map((e) => Squad.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Creates the squad (id == null) or replaces an existing one.
+  static Future<Squad> saveSquad(Squad squad) async {
+    if (demoMode) {
+      await _latency();
+      return _Demo.saveSquad(squad);
+    }
+    final body = {
+      'leagueId': squad.leagueId,
+      'teamId': squad.teamId,
+      'name': squad.name,
+      'formation': squad.formation,
+      'active': squad.active,
+      'slots': [
+        for (final e in squad.slots.entries) {'slot': e.key, 'playerId': e.value.id},
+      ],
+    };
+    final data = squad.id == null
+        ? await _post('/squads', body)
+        : await _put('/squads/${squad.id}', body);
+    return Squad.fromJson(data as Map<String, dynamic>);
+  }
+
+  static Future<void> deleteSquad(int id) async {
+    if (demoMode) {
+      await _latency();
+      _Demo.squads.removeWhere((s) => s.id == id);
+      return;
+    }
+    await _delete('/squads/$id');
+  }
+
   // ---- MegaLeague ----
   static Future<List<RankingEntry>> ranking() async {
     if (demoMode) {
@@ -310,6 +393,98 @@ class _Demo {
   static final List<League> leagues = [League(id: 1, name: 'League 1')];
 
   static int nextMatchId = 6;
+
+  static final List<Squad> squads = [];
+  static int _nextSquadId = 1;
+
+  static final List<Player> players = _makePlayers();
+
+  static List<Player> _makePlayers() {
+    const positions = ['GK', 'CB', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST'];
+    const surnames = [
+      'Demo', 'Ejemplo', 'Prueba', 'Muestra', 'Test', 'Falso', 'Gris', 'Hueco', 'Juguete', 'Nulo',
+    ];
+    final out = <Player>[];
+    var id = 1;
+    for (var round = 0; round < 4; round++) {
+      for (var i = 0; i < positions.length; i++) {
+        final ovr = 90 - round * 5 - (i % 4);
+        final surname = surnames[(i * 3 + round) % surnames.length];
+        final isGk = positions[i] == 'GK';
+        out.add(Player(
+          id: id,
+          shortName: '${String.fromCharCode(65 + i)}. $surname',
+          longName: 'Player $id $surname',
+          positions: positions[i],
+          overall: ovr,
+          potential: ovr + 2,
+          valueEur: ovr * ovr * 3000,
+          age: 20 + (i * 2 + round) % 14,
+          clubName: 'Demo FC',
+          leagueName: 'Demo League',
+          nationalityName: 'Spain',
+          pace: ovr - 3,
+          shooting: ovr - 5,
+          passing: ovr - 2,
+          dribbling: ovr - 4,
+          defending: ovr - 20,
+          physic: ovr - 6,
+          gkDiving: isGk ? ovr : null,
+          gkHandling: isGk ? ovr - 2 : null,
+          gkKicking: isGk ? ovr - 4 : null,
+          gkReflexes: isGk ? ovr + 1 : null,
+          gkSpeed: isGk ? 40 : null,
+          gkPositioning: isGk ? ovr - 1 : null,
+        ));
+        id++;
+      }
+    }
+    return out;
+  }
+
+  static PlayerPage searchPlayers(String q, String position, String sort, int page) {
+    final text = q.toLowerCase().trim();
+    final list = players.where((p) {
+      if (position.isNotEmpty && !p.canPlay(position)) return false;
+      return text.isEmpty ||
+          p.shortName.toLowerCase().contains(text) ||
+          p.longName.toLowerCase().contains(text);
+    }).toList();
+    list.sort((a, b) => sort == 'value'
+        ? (b.valueEur ?? 0).compareTo(a.valueEur ?? 0)
+        : b.overall.compareTo(a.overall));
+    final start = page * 20;
+    final end = (start + 20).clamp(0, list.length);
+    return PlayerPage(
+      players: start >= list.length ? [] : list.sublist(start, end),
+      hasNext: end < list.length,
+      total: list.length,
+    );
+  }
+
+  static Squad saveSquad(Squad s) {
+    final hasOther = squads.any(
+        (q) => q.leagueId == s.leagueId && q.teamId == s.teamId && q.id != s.id);
+    final saved = Squad(
+      id: s.id ?? _nextSquadId++,
+      leagueId: s.leagueId,
+      teamId: s.teamId,
+      teamName: _teamName(s.teamId),
+      leagueName: _leagueName(s.leagueId),
+      name: s.name,
+      formation: s.formation,
+      active: s.active || !hasOther,
+      slots: Map<int, Player>.from(s.slots),
+    );
+    squads.removeWhere((q) => q.id == saved.id);
+    if (saved.active) {
+      for (final q in squads) {
+        if (q.leagueId == saved.leagueId && q.teamId == saved.teamId) q.active = false;
+      }
+    }
+    squads.add(saved);
+    return saved;
+  }
 
   static final List<_DemoMatch> matches = [
     _DemoMatch(id: 1, homeId: 1, awayId: 2, homeGoals: 3, awayGoals: 1, leagueId: 1, date: DateTime.now().subtract(const Duration(days: 5))),

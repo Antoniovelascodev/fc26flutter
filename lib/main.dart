@@ -7,6 +7,7 @@ import 'screens/head_to_head_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/new_match_screen.dart';
 import 'screens/ranking_screen.dart';
+import 'screens/squads_screen.dart';
 import 'theme.dart';
 
 Future<void> main() async {
@@ -40,7 +41,7 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _titles = ['MegaLigue', 'New match', 'Head to head', 'History'];
+  static const _titles = ['MegaLigue', 'New match', 'Head to head', 'History', 'Squads'];
 
   Future<void> _editKey() async {
     final controller = TextEditingController(text: Api.apiKey);
@@ -219,6 +220,7 @@ class _HomeShellState extends State<HomeShell> {
                 NewMatchScreen(),
                 HeadToHeadScreen(),
                 HistoryScreen(),
+                SquadsScreen(),
               ],
             ),
           ),
@@ -245,6 +247,11 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(
             icon: Icon(Icons.history),
             label: 'History',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.groups_outlined),
+            selectedIcon: Icon(Icons.groups),
+            label: 'Squads',
           ),
         ],
       ),

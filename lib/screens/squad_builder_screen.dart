@@ -1,0 +1,660 @@
+import 'package:flutter/material.dart';
+
+import '../api.dart';
+import '../formations.dart';
+import '../models.dart';
+import '../player_widgets.dart';
+import '../theme.dart';
+
+/// Edit one squad: formation, starting XI on a pitch, and the bench.
+/// Pops with `true` when something was saved or deleted.
+class SquadBuilderScreen extends StatefulWidget {
+  final Squad squad;
+
+  const SquadBuilderScreen({super.key, required this.squad});
+
+  @override
+  State<SquadBuilderScreen> createState() => _SquadBuilderScreenState();
+}
+
+class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
+  late final TextEditingController _name;
+  late String _formation;
+  late Map<int, Player> _slots;
+  late bool _active;
+  bool _dirty = false;
+  bool _saving = false;
+
+  Squad get _original => widget.squad;
+  bool get _isNew => _original.id == null;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: _original.name);
+    _formation = _original.formation;
+    _slots = Map<int, Player>.from(_original.slots);
+    _active = _original.active;
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _change(VoidCallback fn) => setState(() {
+        fn();
+        _dirty = true;
+      });
+
+  Squad _draft() => Squad(
+        id: _original.id,
+        leagueId: _original.leagueId,
+        teamId: _original.teamId,
+        teamName: _original.teamName,
+        leagueName: _original.leagueName,
+        name: _name.text.trim(),
+        formation: _formation,
+        active: _active,
+        slots: _slots,
+      );
+
+  Future<void> _chooseFormation() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Formation', style: displayStyle(size: 28)),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final f in formations)
+                    ChoiceChip(
+                      label: Text(f.name),
+                      selected: f.name == _formation,
+                      showCheckmark: false,
+                      selectedColor: AppColors.text,
+                      backgroundColor: AppColors.surfaceHi,
+                      side: BorderSide.none,
+                      labelStyle: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: f.name == _formation ? AppColors.ink : AppColors.text,
+                      ),
+                      onSelected: (_) => Navigator.pop(ctx, f.name),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked == null || picked == _formation) return;
+    _change(() {
+      _slots = remapStarters(_slots, formationByName(_formation), formationByName(picked));
+      _formation = picked;
+    });
+  }
+
+  Set<int> _usedIds({int? exceptSlot}) => {
+        for (final e in _slots.entries)
+          if (e.key != exceptSlot) e.value.id,
+      };
+
+  Future<void> _pickFor(int slot, String position) async {
+    final player = await pickPlayer(
+      context,
+      initialPosition: position,
+      excludeIds: _usedIds(exceptSlot: slot),
+    );
+    if (player == null) return;
+    _change(() => _slots[slot] = player);
+  }
+
+  Future<void> _onSlotTap(int slot, String position) async {
+    final current = _slots[slot];
+    if (current == null) {
+      return _pickFor(slot, position);
+    }
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PlayerTile(player: current, onTap: () => Navigator.pop(ctx, 'info')),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.swap_horiz),
+              title: const Text('Change player'),
+              onTap: () => Navigator.pop(ctx, 'change'),
+            ),
+            if (slot < Squad.benchStart)
+              ListTile(
+                leading: const Icon(Icons.event_seat_outlined),
+                title: const Text('Send to bench'),
+                onTap: () => Navigator.pop(ctx, 'bench'),
+              )
+            else
+              ListTile(
+                leading: const Icon(Icons.sports_soccer),
+                title: const Text('Swap with a starter'),
+                onTap: () => Navigator.pop(ctx, 'swap'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Remove'),
+              onTap: () => Navigator.pop(ctx, 'remove'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case 'info':
+        await showPlayerDetail(context, current);
+      case 'change':
+        await _pickFor(slot, position);
+      case 'remove':
+        _change(() => _slots.remove(slot));
+      case 'bench':
+        _sendToBench(slot);
+      case 'swap':
+        await _swapWithStarter(slot);
+    }
+  }
+
+  void _sendToBench(int slot) {
+    for (var k = Squad.benchStart; k < Squad.benchStart + Squad.benchSize; k++) {
+      if (!_slots.containsKey(k)) {
+        _change(() => _slots[k] = _slots.remove(slot)!);
+        return;
+      }
+    }
+    _toast('The bench is full');
+  }
+
+  Future<void> _swapWithStarter(int benchSlot) async {
+    final formation = formationByName(_formation);
+    final target = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text('Swap with…', style: displayStyle(size: 28)),
+              ),
+              for (var i = 0; i < 11; i++)
+                ListTile(
+                  leading: SizedBox(
+                    width: 44,
+                    child: Text(formation.slots[i].position,
+                        style: const TextStyle(
+                            color: AppColors.textDim, fontWeight: FontWeight.w700)),
+                  ),
+                  title: Text(_slots[i]?.shortName ?? 'Empty'),
+                  trailing: _slots[i] == null ? null : OvrBadge(overall: _slots[i]!.overall, size: 32),
+                  onTap: () => Navigator.pop(ctx, i),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (target == null) return;
+    _change(() {
+      final starter = _slots[target];
+      _slots[target] = _slots[benchSlot]!;
+      if (starter == null) {
+        _slots.remove(benchSlot);
+      } else {
+        _slots[benchSlot] = starter;
+      }
+    });
+  }
+
+  Future<void> _save() async {
+    if (_name.text.trim().isEmpty) return _toast('Give the squad a name');
+    setState(() => _saving = true);
+    try {
+      await Api.saveSquad(_draft());
+      if (!mounted) return;
+      _dirty = false;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _toast(e.toString());
+    }
+  }
+
+  Future<void> _delete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Delete this squad?', style: displayStyle(size: 28)),
+        content: Text('"${_original.name}" will be deleted.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep squad')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete squad')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await Api.deleteSquad(_original.id!);
+      if (!mounted) return;
+      _dirty = false;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      _toast(e.toString());
+    }
+  }
+
+  Future<bool> _confirmDiscard() async {
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Discard changes?', style: displayStyle(size: 28)),
+        content: const Text('You have unsaved changes in this squad.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep editing')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Discard')),
+        ],
+      ),
+    );
+    return discard == true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final formation = formationByName(_formation);
+    final draft = _draft();
+    final teamColorValue = teamColor(_original.teamName);
+
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final navigator = Navigator.of(context);
+        if (await _confirmDiscard()) {
+          _dirty = false;
+          navigator.pop(false);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(_isNew ? 'New squad' : 'Squad'),
+          actions: [
+            if (!_isNew)
+              IconButton(
+                tooltip: 'Delete squad',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: _delete,
+              ),
+          ],
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: teamColorValue,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${_original.teamName}  ·  ${_original.leagueName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: displayStyle(size: 26),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _name,
+              maxLength: 60,
+              onChanged: (_) => _change(() {}),
+              decoration: const InputDecoration(labelText: 'Squad name', counterText: ''),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _chooseFormation,
+                  icon: const Icon(Icons.grid_view_rounded, size: 18),
+                  label: Text(_formation),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.text,
+                    side: const BorderSide(color: AppColors.line),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+                const Spacer(),
+                const Text('Active squad', style: TextStyle(color: AppColors.textDim)),
+                Switch(value: _active, onChanged: (v) => _change(() => _active = v)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _Pitch(
+              formation: formation,
+              slots: _slots,
+              onTap: (i) => _onSlotTap(i, formation.slots[i].position),
+            ),
+            const SizedBox(height: 14),
+            _SummaryRow(squad: draft),
+            const SizedBox(height: 22),
+            Text('Bench', style: displayStyle(size: 26)),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (var k = Squad.benchStart; k < Squad.benchStart + Squad.benchSize; k++)
+                  _BenchSlot(
+                    player: _slots[k],
+                    onTap: () => _onSlotTap(k, ''),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 28),
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.ink),
+                    )
+                  : const Text('Save squad'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final Squad squad;
+
+  const _SummaryRow({required this.squad});
+
+  Widget _box(String label, String value) => Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            children: [
+              Text(value, style: displayStyle(size: 26)),
+              const SizedBox(height: 2),
+              Text(label, style: const TextStyle(color: AppColors.textDim, fontSize: 11)),
+            ],
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final starters = squad.starters.length;
+    return Row(
+      children: [
+        _box('XI OVR', starters == 0 ? '-' : squad.averageOverall.toStringAsFixed(1)),
+        const SizedBox(width: 8),
+        _box('Squad value', formatValue(squad.totalValue)),
+        const SizedBox(width: 8),
+        _box('Avg age', squad.slots.isEmpty ? '-' : squad.averageAge.toStringAsFixed(1)),
+        const SizedBox(width: 8),
+        _box('Starters', '$starters/11'),
+      ],
+    );
+  }
+}
+
+class _BenchSlot extends StatelessWidget {
+  final Player? player;
+  final VoidCallback onTap;
+
+  const _BenchSlot({required this.player, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = player;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.line),
+        ),
+        child: p == null
+            ? const SizedBox(
+                height: 54,
+                child: Center(child: Icon(Icons.add, color: AppColors.textDim)),
+              )
+            : Column(
+                children: [
+                  OvrBadge(overall: p.overall, size: 34),
+                  const SizedBox(height: 4),
+                  Text(p.shortName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  Text(p.mainPosition,
+                      style: const TextStyle(fontSize: 10, color: AppColors.textDim)),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+/// The pitch with the 11 places of a formation.
+class _Pitch extends StatelessWidget {
+  final Formation formation;
+  final Map<int, Player> slots;
+  final ValueChanged<int> onTap;
+
+  const _Pitch({required this.formation, required this.slots, required this.onTap});
+
+  static const double _slotW = 66;
+  static const double _slotH = 70;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, c) {
+      // Never taller than ~75% of the screen, so the whole pitch is visible on
+      // wide browser windows too; the width follows the height.
+      final screenH = MediaQuery.of(context).size.height;
+      final h = (c.maxWidth * 1.3).clamp(0.0, (screenH * 0.75).clamp(380.0, 640.0));
+      final w = (h / 1.3).clamp(0.0, c.maxWidth);
+      final slotW = (w * 0.19).clamp(52.0, _slotW);
+      return Center(
+          child: SizedBox(
+        width: w,
+        height: h,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
+            children: [
+              Positioned.fill(child: CustomPaint(painter: _PitchPainter())),
+              for (var i = 0; i < 11; i++)
+                Positioned(
+                  left: formation.slots[i].x * w - slotW / 2,
+                  top: formation.slots[i].y * h - _slotH / 2,
+                  width: slotW,
+                  height: _slotH,
+                  child: _PitchSlot(
+                    position: formation.slots[i].position,
+                    player: slots[i],
+                    onTap: () => onTap(i),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ));
+    });
+  }
+}
+
+class _PitchSlot extends StatelessWidget {
+  final String position;
+  final Player? player;
+  final VoidCallback onTap;
+
+  const _PitchSlot({required this.position, required this.player, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = player;
+    final offPosition = p != null && !fitsSlot(p, position);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              if (p == null)
+                Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black.withAlpha(60),
+                    border: Border.all(color: Colors.white54, width: 1.5),
+                  ),
+                  child: const Icon(Icons.add, color: Colors.white70, size: 20),
+                )
+              else
+                OvrBadge(overall: p.overall, size: 42),
+              if (offPosition)
+                Positioned(
+                  right: -4,
+                  top: -4,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFF9A3D),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Text('!',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.ink)),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: Colors.black.withAlpha(110),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              p?.shortName ?? position,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PitchPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grass = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF1C6B3C), Color(0xFF165A32)],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, grass);
+
+    // Mowing stripes.
+    final stripe = Paint()..color = Colors.white.withAlpha(8);
+    const stripes = 8;
+    for (var i = 0; i < stripes; i += 2) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, i * size.height / stripes, size.width, size.height / stripes),
+        stripe,
+      );
+    }
+
+    final line = Paint()
+      ..color = Colors.white.withAlpha(120)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    const m = 10.0;
+    final field = Rect.fromLTWH(m, m, size.width - 2 * m, size.height - 2 * m);
+    canvas.drawRect(field, line);
+    canvas.drawLine(Offset(m, size.height / 2), Offset(size.width - m, size.height / 2), line);
+    canvas.drawCircle(Offset(size.width / 2, size.height / 2), size.width * 0.14, line);
+
+    final boxW = size.width * 0.5;
+    final boxH = size.height * 0.14;
+    canvas.drawRect(
+        Rect.fromLTWH((size.width - boxW) / 2, m, boxW, boxH), line);
+    canvas.drawRect(
+        Rect.fromLTWH((size.width - boxW) / 2, size.height - m - boxH, boxW, boxH), line);
+    final smallW = size.width * 0.26;
+    final smallH = size.height * 0.06;
+    canvas.drawRect(
+        Rect.fromLTWH((size.width - smallW) / 2, m, smallW, smallH), line);
+    canvas.drawRect(
+        Rect.fromLTWH((size.width - smallW) / 2, size.height - m - smallH, smallW, smallH), line);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
