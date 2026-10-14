@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../models.dart';
+import '../ratings_card.dart';
 import '../scorers_card.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -26,6 +27,8 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
   int _homeGoals = 0;
   int _awayGoals = 0;
   final List<ScorerInput> _scorers = [];
+  final List<MatchMark> _marks = [];
+  int _marksReset = 0;
 
   @override
   void initState() {
@@ -169,12 +172,15 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
         awayGoals: ag,
         leagueId: _leagueId!,
         scorers: List.of(_scorers),
+        marks: List.of(_marks),
       );
       if (!mounted) return;
       setState(() {
         _homeGoals = 0;
         _awayGoals = 0;
         _scorers.clear();
+        _marks.clear();
+        _marksReset++; // makes the marks card load a fresh 6 for everybody
       });
       _toast('Saved: ${home.name} $hg-$ag ${away.name}');
       notifyDataChanged();
@@ -281,6 +287,15 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
             awayGoals: _awayGoals,
             leagueId: _leagueId,
             scorers: _scorers,
+            onChanged: () => setState(() {}),
+          ),
+        if (home != null && away != null)
+          RatingsCard(
+            key: ValueKey('marks-${home.id}-${away.id}-$_leagueId-$_marksReset'),
+            home: home,
+            away: away,
+            leagueId: _leagueId,
+            marks: _marks,
             onChanged: () => setState(() {}),
           ),
         Padding(

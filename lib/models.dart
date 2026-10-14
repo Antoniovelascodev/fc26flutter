@@ -139,6 +139,23 @@ class GoalItem {
       );
 }
 
+/// The mark of a player in a new match (everybody starts with a 6).
+class MatchMark {
+  final Player player;
+  final int teamId;
+  final bool bench;
+  double rating;
+  bool played;
+
+  MatchMark({
+    required this.player,
+    required this.teamId,
+    this.bench = false,
+    this.rating = 6,
+    this.played = true,
+  });
+}
+
 /// A scorer being entered for a new match.
 class ScorerInput {
   final Player player;

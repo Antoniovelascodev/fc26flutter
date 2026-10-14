@@ -297,7 +297,7 @@ class _MegaStats extends StatelessWidget {
           load: () => Api.megaRatings(),
           builder: (context, rows) => BestXiView(
             rows: rows,
-            emptyMessage: 'Rate players in the Best XI tab of each league '
+            emptyMessage: 'Mark the players after each match ("How did they play?") '
                 'and the MegaLeague best XI appears here.',
           ),
         ),

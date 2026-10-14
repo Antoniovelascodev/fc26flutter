@@ -106,7 +106,10 @@ class _BestXiViewState extends State<BestXiView> {
         Pitch(
           formation: formation,
           slots: {for (final e in xi.entries) e.key: e.value.player},
-          tags: {for (final e in xi.entries) e.key: formatRating(e.value.rating!)},
+          tags: {
+            for (final e in xi.entries)
+              e.key: '${e.value.rating!.toStringAsFixed(1)} (${e.value.ratedIn})',
+          },
         ),
         const SizedBox(height: 10),
         Text(

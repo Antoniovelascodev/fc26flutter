@@ -310,6 +310,7 @@ class Api {
     required int awayGoals,
     required int leagueId,
     List<ScorerInput> scorers = const [],
+    List<MatchMark> marks = const [],
   }) async {
     if (demoMode) {
       await _latency();
@@ -343,6 +344,11 @@ class Api {
         'goals': [
           for (final g in scorers)
             {'playerId': g.player.id, 'teamId': g.teamId, 'goals': g.goals},
+        ],
+      if (marks.where((m) => m.played).isNotEmpty)
+        'ratings': [
+          for (final m in marks.where((m) => m.played))
+            {'playerId': m.player.id, 'teamId': m.teamId, 'rating': m.rating},
         ],
     });
   }

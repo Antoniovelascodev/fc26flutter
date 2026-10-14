@@ -538,21 +538,6 @@ class _BestXiTab extends StatelessWidget {
 
   const _BestXiTab({required this.leagueId});
 
-  Future<void> _rate(BuildContext context, RatingRow row) async {
-    final result = await showModalBottomSheet<_RatingChoice>(
-      context: context,
-      builder: (ctx) => _RatingSheet(row: row),
-    );
-    if (result == null) return;
-    try {
-      await Api.rate(leagueId, row.player.id, result.remove ? null : result.value);
-      notifyDataChanged();
-    } catch (e) {
-      if (!context.mounted) return;
-      _toast(context, e.toString());
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return AsyncView<List<RatingRow>>(
@@ -564,96 +549,37 @@ class _BestXiTab extends StatelessWidget {
           children: [
             BestXiView(
               rows: rows,
-              emptyMessage: rows.isEmpty
-                  ? 'First build a squad for each team in this league (Squads tab). '
-                      'The players you use appear here so you can rate them.'
-                  : 'Rate some players below and the best XI of this league appears here.',
+              emptyMessage: 'The best XI is built from the marks given to the players after '
+                  'each match ("How did they play?" when you save a result). '
+                  'Save a match with marks and it appears here.',
             ),
-            const SectionTitle('Rate the players',
-                hint: 'One rating from 0 to 10, agreed by the group'),
-            if (rows.isEmpty)
-              const Text('No players in the squads of this league yet.',
-                  style: TextStyle(color: AppColors.textDim)),
-            for (final r in rows)
-              PlayerTile(
-                player: r.player,
-                note: r.teams.join(', '),
-                onTap: () => _rate(context, r),
-                trailingOverride: Container(
-                  width: 52,
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  decoration: BoxDecoration(
-                    color: r.rating == null ? AppColors.surfaceHi : const Color(0xFFFFD166),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    r.rating == null ? 'Rate' : formatRating(r.rating!),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: r.rating == null ? AppColors.textDim : AppColors.ink,
+            if (rows.isNotEmpty) ...[
+              const SectionTitle('Average marks',
+                  hint: 'Best average first. In brackets: matches marked'),
+              for (final r in rows)
+                PlayerTile(
+                  player: r.player,
+                  note: r.teams.join(', '),
+                  onTap: () => showPlayerDetail(context, r.player),
+                  trailingOverride: Container(
+                    width: 64,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFD166),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${r.rating!.toStringAsFixed(2)} (${r.ratedIn})',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w800, fontSize: 12, color: AppColors.ink),
                     ),
                   ),
                 ),
-              ),
+            ],
           ],
         );
       },
-    );
-  }
-}
-
-class _RatingChoice {
-  final double value;
-  final bool remove;
-
-  _RatingChoice(this.value, {this.remove = false});
-}
-
-class _RatingSheet extends StatefulWidget {
-  final RatingRow row;
-
-  const _RatingSheet({required this.row});
-
-  @override
-  State<_RatingSheet> createState() => _RatingSheetState();
-}
-
-class _RatingSheetState extends State<_RatingSheet> {
-  late double _value = widget.row.rating ?? 7;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PlayerTile(player: widget.row.player),
-            const SizedBox(height: 8),
-            Text(formatRating(_value), style: displayStyle(size: 64, weight: FontWeight.w900)),
-            Slider(
-              value: _value,
-              min: 0,
-              max: 10,
-              divisions: 20,
-              label: formatRating(_value),
-              onChanged: (v) => setState(() => _value = v),
-            ),
-            const SizedBox(height: 8),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, _RatingChoice(_value)),
-              child: const Text('Save rating'),
-            ),
-            if (widget.row.rating != null)
-              TextButton(
-                onPressed: () => Navigator.pop(context, _RatingChoice(0, remove: true)),
-                child: const Text('Remove rating'),
-              ),
-          ],
-        ),
-      ),
     );
   }
 }
