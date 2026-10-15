@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../async_view.dart';
 import '../best_xi.dart';
+import '../league_dialogs.dart';
 import '../models.dart';
 import '../pin_dialogs.dart';
 import '../player_widgets.dart';
@@ -152,9 +153,11 @@ class _LeagueScreenState extends State<LeagueScreen> {
       );
     }
     if (_leagues.isEmpty) {
-      return const EmptyView(
+      return EmptyView(
         title: 'No leagues yet',
-        message: 'Create a league in New match and its page will show up here.',
+        message: 'Create the first league and its page will show up here.',
+        actionLabel: 'Create a league',
+        onAction: () => showCreateLeagueDialog(context),
       );
     }
 
@@ -172,6 +175,7 @@ class _LeagueScreenState extends State<LeagueScreen> {
                   leagues: _leagues,
                   selectedId: _leagueId,
                   onSelected: (id) => setState(() => _leagueId = id),
+                  onNew: () => showCreateLeagueDialog(context),
                 ),
               ),
               PopupMenuButton<String>(

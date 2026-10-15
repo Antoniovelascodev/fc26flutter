@@ -491,6 +491,15 @@ class Api {
     return data.map((e) => (e as num).toInt()).toSet();
   }
 
+  /// Corrects the value of a player (euros). It also protects it from the next CSV import.
+  static Future<void> setPlayerValue(int playerId, int valueEur) async {
+    if (demoMode) {
+      await _latency();
+      return;
+    }
+    await _put('/players/$playerId/value', {'valueEur': valueEur});
+  }
+
   static Future<void> deleteSquad(int id) async {
     if (demoMode) {
       await _latency();
@@ -655,6 +664,11 @@ class _Demo {
           gkReflexes: isGk ? ovr + 1 : null,
           gkSpeed: isGk ? 40 : null,
           gkPositioning: isGk ? ovr - 1 : null,
+          detail: {
+            for (final s in kStats)
+              if (isGk == (s.group == 'Goalkeeping'))
+                s.key: (ovr - 14 + ((i * 7 + s.key.length * 3 + round * 5) % 17)).clamp(25, 99),
+          },
         ));
         id++;
       }

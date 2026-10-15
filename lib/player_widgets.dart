@@ -190,6 +190,58 @@ class PlayerTile extends StatelessWidget {
   }
 }
 
+Future<void> _editValue(BuildContext context, Player p) async {
+  final controller = TextEditingController(
+      text: p.valueEur == null ? '' : (p.valueEur! / 1000000).toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), ''));
+  final millions = await showDialog<double>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text('Value of ${p.shortName}', style: displayStyle(size: 26)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Now: ${formatValue(p.valueEur)}. Enter the value you see in the game (millions of euros).',
+              style: const TextStyle(color: AppColors.textDim, height: 1.4, fontSize: 13)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Value', suffixText: 'M€'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () =>
+              Navigator.pop(ctx, double.tryParse(controller.text.trim().replaceAll(',', '.'))),
+          child: const Text('Save value'),
+        ),
+      ],
+    ),
+  );
+  if (millions == null || millions < 0) return;
+  try {
+    await Api.setPlayerValue(p.id, (millions * 1000000).round());
+    notifyDataChanged();
+    if (context.mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('${p.shortName}: ${formatValue((millions * 1000000).round())}')));
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+}
+
 /// Full details of a player in a bottom sheet.
 Future<void> showPlayerDetail(BuildContext context, Player p) {
   return showModalBottomSheet<void>(
@@ -249,6 +301,12 @@ Future<void> showPlayerDetail(BuildContext context, Player p) {
             const SizedBox(height: 18),
             for (final s in p.headlineStats) _StatBar(label: s.$1, value: s.$2),
             ..._detailGroups(p),
+            const SizedBox(height: 18),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('Correct this player\'s value'),
+              onPressed: () => _editValue(ctx, p),
+            ),
           ],
         ),
       ),

@@ -52,6 +52,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   static const _titles = [
     'Artillería League',
@@ -178,6 +179,8 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: _buildDrawer(),
       appBar: AppBar(
         title: Text(_titles[_index]),
         actions: [
@@ -258,9 +261,16 @@ class _HomeShellState extends State<HomeShell> {
           ),
         ],
       ),
+      // Only the two screens used all the time live in the bottom bar; the rest are in the drawer.
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        selectedIndex: _index == 0 ? 0 : (_index == 1 ? 1 : 2),
+        onDestinationSelected: (i) {
+          if (i == 2) {
+            _scaffoldKey.currentState?.openDrawer();
+          } else {
+            setState(() => _index = i);
+          }
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.leaderboard_outlined),
@@ -270,28 +280,73 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(
             icon: Icon(Icons.sports_soccer_outlined),
             selectedIcon: Icon(Icons.sports_soccer),
-            label: 'Match',
+            label: 'New match',
           ),
           NavigationDestination(
-            icon: Icon(Icons.compare_arrows),
-            label: 'H2H',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.emoji_events_outlined),
-            selectedIcon: Icon(Icons.emoji_events),
-            label: 'Leagues',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups),
-            label: 'Squads',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_search_outlined),
-            selectedIcon: Icon(Icons.person_search),
-            label: 'Players',
+            icon: Icon(Icons.menu),
+            selectedIcon: Icon(Icons.menu_open),
+            label: 'Menu',
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDrawer() {
+    Widget item(int index, IconData icon, String label) => ListTile(
+          leading: Icon(icon, color: _index == index ? AppColors.text : AppColors.textDim),
+          title: Text(label,
+              style: TextStyle(
+                  fontWeight: _index == index ? FontWeight.w800 : FontWeight.w500)),
+          selected: _index == index,
+          selectedTileColor: AppColors.surfaceHi,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          onTap: () {
+            Navigator.pop(context);
+            setState(() => _index = index);
+          },
+        );
+    return Drawer(
+      backgroundColor: AppColors.surface,
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 16),
+              child: Text('Artillería League', style: displayStyle(size: 34)),
+            ),
+            item(0, Icons.leaderboard, 'Table'),
+            item(1, Icons.sports_soccer, 'New match'),
+            item(3, Icons.emoji_events, 'Leagues'),
+            item(4, Icons.groups, 'Squads'),
+            item(5, Icons.person_search, 'Players'),
+            item(2, Icons.compare_arrows, 'Head to head'),
+            if (!demoMode) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: Divider(),
+              ),
+              ListTile(
+                leading: const Icon(Icons.download_outlined, color: AppColors.textDim),
+                title: const Text('Download backup'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _backup();
+                },
+              ),
+              ListTile(
+                leading: Icon(Api.hasKey ? Icons.vpn_key : Icons.vpn_key_outlined,
+                    color: AppColors.textDim),
+                title: const Text('Access key'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _editKey();
+                },
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
