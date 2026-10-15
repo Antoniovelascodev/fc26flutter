@@ -263,13 +263,36 @@ class Api {
     return data.map((e) => League.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  static Future<void> createLeague(String name) async {
+  static Future<void> createLeague(String name, {int? budgetMillions}) async {
     if (demoMode) {
       await _latency();
-      _Demo.leagues.add(League(id: _Demo.leagues.length + 1, name: name));
+      _Demo.leagues.add(League(
+          id: _Demo.leagues.length + 1, name: name, budgetMillions: budgetMillions));
       return;
     }
-    await _post('/leagues', {'name': name, 'description': ''});
+    await _post('/leagues', {
+      'name': name,
+      'description': '',
+      'budgetMillions': ?budgetMillions,
+    });
+  }
+
+  /// Sets (or removes, with null) the maximum value of a squad in the league.
+  static Future<void> setLeagueBudget(League league, int? millions) async {
+    if (demoMode) {
+      await _latency();
+      final i = _Demo.leagues.indexWhere((l) => l.id == league.id);
+      if (i >= 0) {
+        _Demo.leagues[i] =
+            League(id: league.id, name: league.name, budgetMillions: millions);
+      }
+      return;
+    }
+    await _put('/leagues/${league.id}', {
+      'name': league.name,
+      'description': league.description ?? '',
+      'budgetMillions': millions,
+    });
   }
 
   /// How many matches, squads and ratings deleting the league would remove.

@@ -26,6 +26,7 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
   bool _dirty = false;
   bool _saving = false;
   Set<int> _taken = {}; // players other teams already have in this league
+  int? _budget; // league budget in millions of euros
 
   Squad get _original => widget.squad;
   bool get _isNew => _original.id == null;
@@ -37,6 +38,11 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
     _formation = _original.formation;
     _slots = Map<int, Player>.from(_original.slots);
     _active = _original.active;
+    Api.leagues().then((all) {
+      for (final l in all) {
+        if (l.id == _original.leagueId && mounted) setState(() => _budget = l.budgetMillions);
+      }
+    }).catchError((_) {});
     Api.takenPlayers(_original.leagueId, _original.teamId).then((ids) {
       if (mounted) setState(() => _taken = ids);
     }).catchError((_) {});
@@ -145,6 +151,13 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
       initialPosition: position,
       excludeIds: _usedIds(exceptSlot: slot),
       takenIds: _taken,
+      maxValueEur: _budget == null
+          ? null
+          : (_budget! * 1000000 -
+                  _slots.entries
+                      .where((e) => e.key != slot)
+                      .fold<int>(0, (a, e) => a + (e.value.valueEur ?? 0)))
+              .clamp(0, 1 << 40),
     );
     if (player == null) return;
     _change(() => _slots[slot] = player);
@@ -260,6 +273,9 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
 
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) return _toast('Give the squad a name');
+    if (_budget != null && _draft().totalValue > _budget! * 1000000) {
+      return _toast('The squad is over the league budget of ${_budget}M. Replace some players.');
+    }
     setState(() => _saving = true);
     try {
       await Api.saveSquad(_draft());
@@ -392,7 +408,7 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            _SummaryRow(squad: draft),
+            _SummaryRow(squad: draft, budgetMillions: _budget),
             const SizedBox(height: 12),
             Pitch(
               formation: formation,
@@ -449,8 +465,9 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
 
 class _SummaryRow extends StatelessWidget {
   final Squad squad;
+  final int? budgetMillions;
 
-  const _SummaryRow({required this.squad});
+  const _SummaryRow({required this.squad, this.budgetMillions});
 
   Widget _box(String label, String value) => Expanded(
         child: Container(
@@ -476,7 +493,8 @@ class _SummaryRow extends StatelessWidget {
       children: [
         _box('XI OVR', starters == 0 ? '-' : squad.averageOverall.toStringAsFixed(1)),
         const SizedBox(width: 8),
-        _box('Squad value', formatValue(squad.totalValue)),
+        _box(budgetMillions == null ? 'Squad value' : 'of ${budgetMillions}M budget',
+            formatValue(squad.totalValue)),
         const SizedBox(width: 8),
         _box('Avg age', squad.slots.isEmpty ? '-' : squad.averageAge.toStringAsFixed(1)),
         const SizedBox(width: 8),

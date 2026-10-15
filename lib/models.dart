@@ -24,11 +24,15 @@ class League {
   /// false = the squads of each team are hidden from the others for now.
   final bool squadsRevealed;
 
+  /// Maximum value of a squad in this league, in millions of euros (null = no limit).
+  final int? budgetMillions;
+
   League({
     required this.id,
     required this.name,
     this.description,
     this.squadsRevealed = true,
+    this.budgetMillions,
   });
 
   factory League.fromJson(Map<String, dynamic> j) => League(
@@ -36,6 +40,7 @@ class League {
         name: j['name'] as String? ?? '',
         description: j['description'] as String?,
         squadsRevealed: j['squadsRevealed'] != false,
+        budgetMillions: j['budgetMillions'] is num ? (j['budgetMillions'] as num).toInt() : null,
       );
 }
 

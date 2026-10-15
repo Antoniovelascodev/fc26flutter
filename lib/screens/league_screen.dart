@@ -60,6 +60,58 @@ class _LeagueScreenState extends State<LeagueScreen> {
     }
   }
 
+  Future<void> _editBudget(League league) async {
+    final controller = TextEditingController(text: '${league.budgetMillions ?? ''}');
+    final result = await showDialog<({bool clear, int? value})>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Squad budget', style: displayStyle(size: 28)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Maximum value of a squad (starters and bench) in this league. '
+              'Squads above it cannot be saved.',
+              style: TextStyle(color: AppColors.textDim, height: 1.4, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Millions of euros', suffixText: 'M€'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, (clear: true, value: null)),
+            child: const Text('No limit'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(
+                ctx, (clear: false, value: int.tryParse(controller.text.trim()))),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (result == null) return;
+    if (!result.clear && result.value == null) return;
+    try {
+      await Api.setLeagueBudget(league, result.clear ? null : result.value);
+      notifyDataChanged();
+      if (!mounted) return;
+      _toast(context, result.clear ? 'Budget removed' : 'Budget set to ${result.value}M');
+    } catch (e) {
+      if (!mounted) return;
+      _toast(context, e.toString());
+    }
+  }
+
   /// Two steps: see what will be lost, then type the league name to confirm.
   Future<void> _deleteLeague(League league) async {
     ({int matches, int squads, int ratings}) impact;
@@ -127,9 +179,16 @@ class _LeagueScreenState extends State<LeagueScreen> {
                 icon: const Icon(Icons.more_vert, color: AppColors.textDim),
                 onSelected: (v) {
                   if (v == 'delete') _deleteLeague(league);
+                  if (v == 'budget') _editBudget(league);
                 },
-                itemBuilder: (_) => const [
+                itemBuilder: (_) => [
                   PopupMenuItem(
+                    value: 'budget',
+                    child: Text(league.budgetMillions == null
+                        ? 'Set squad budget…'
+                        : 'Squad budget: ${league.budgetMillions}M…'),
+                  ),
+                  const PopupMenuItem(
                     value: 'delete',
                     child: Text('Delete this league…'),
                   ),

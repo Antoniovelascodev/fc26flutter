@@ -379,6 +379,7 @@ Future<Player?> pickPlayer(
   String initialPosition = '',
   Set<int> excludeIds = const {},
   Set<int> takenIds = const {},
+  int? maxValueEur,
 }) {
   return showModalBottomSheet<Player>(
     context: context,
@@ -386,7 +387,10 @@ Future<Player?> pickPlayer(
     builder: (ctx) => SizedBox(
       height: MediaQuery.of(ctx).size.height * 0.92,
       child: _PlayerPicker(
-          initialPosition: initialPosition, excludeIds: excludeIds, takenIds: takenIds),
+          initialPosition: initialPosition,
+          excludeIds: excludeIds,
+          takenIds: takenIds,
+          maxValueEur: maxValueEur),
     ),
   );
 }
@@ -395,11 +399,13 @@ class _PlayerPicker extends StatefulWidget {
   final String initialPosition;
   final Set<int> excludeIds;
   final Set<int> takenIds;
+  final int? maxValueEur;
 
   const _PlayerPicker({
     required this.initialPosition,
     required this.excludeIds,
     required this.takenIds,
+    this.maxValueEur,
   });
 
   @override
@@ -413,7 +419,8 @@ class _PlayerPickerState extends State<_PlayerPicker> {
   int _request = 0;
 
   late String _position = widget.initialPosition;
-  PlayerFilters _filters = PlayerFilters();
+  late PlayerFilters _filters = PlayerFilters()
+    ..maxValueM = widget.maxValueEur == null ? null : widget.maxValueEur! / 1000000;
   final List<Player> _players = [];
   int _page = 0;
   bool _hasNext = false;
