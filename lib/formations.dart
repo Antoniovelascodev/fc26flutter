@@ -28,14 +28,39 @@ Formation _build(String name, List<List<String>> rows) {
     final y = rows.length == 1
         ? (top + bottom) / 2
         : bottom - r * (bottom - top) / (rows.length - 1);
-    final row = rows[r];
-    for (var i = 0; i < row.length; i++) {
-      final x = row.length == 1 ? 0.5 : 0.12 + i * (0.76 / (row.length - 1));
-      slots.add(SlotSpec(row[i], x, y));
+    final xs = _rowX(rows[r]);
+    for (var i = 0; i < rows[r].length; i++) {
+      slots.add(SlotSpec(rows[r][i], xs[i], y));
     }
   }
   assert(slots.length == 11, 'Formation $name must have 11 players');
   return Formation(name, slots);
+}
+
+/// Wide players (L* / R*) go to the touchlines; the others are spread around the
+/// centre, so a pair of defensive midfielders is never out on the wing.
+List<double> _rowX(List<String> row) {
+  bool left(String p) => p.startsWith('L');
+  bool right(String p) => p.startsWith('R');
+  final wide = row.where((p) => left(p) || right(p)).length;
+  final centres = row.length - wide;
+  final step = switch (centres) {
+    1 => 0.0,
+    2 => wide > 0 ? 0.24 : 0.28,
+    3 => wide > 0 ? 0.24 : 0.26,
+    4 => 0.22,
+    _ => 0.2,
+  };
+  var c = 0;
+  return [
+    for (final p in row)
+      if (left(p))
+        0.09
+      else if (right(p))
+        0.91
+      else
+        0.5 + (c++ - (centres - 1) / 2) * step,
+  ];
 }
 
 final List<Formation> formations = [
@@ -85,6 +110,35 @@ final List<Formation> formations = [
     ['LM', 'CM', 'CAM', 'CM', 'RM'],
     ['ST'],
   ]),
+  _build('4-2-2-2', [
+    ['LB', 'CB', 'CB', 'RB'],
+    ['CDM', 'CDM'],
+    ['CAM', 'CAM'],
+    ['ST', 'ST'],
+  ]),
+  _build('4-2-1-3', [
+    ['LB', 'CB', 'CB', 'RB'],
+    ['CDM', 'CDM'],
+    ['CAM'],
+    ['LW', 'ST', 'RW'],
+  ]),
+  _build('4-2-4', [
+    ['LB', 'CB', 'CB', 'RB'],
+    ['CM', 'CM'],
+    ['LW', 'ST', 'ST', 'RW'],
+  ]),
+  _build('4-3-1-2', [
+    ['LB', 'CB', 'CB', 'RB'],
+    ['CM', 'CM', 'CM'],
+    ['CAM'],
+    ['ST', 'ST'],
+  ]),
+  _build('4-1-3-2', [
+    ['LB', 'CB', 'CB', 'RB'],
+    ['CDM'],
+    ['LM', 'CM', 'RM'],
+    ['ST', 'ST'],
+  ]),
   _build('3-5-2', [
     ['CB', 'CB', 'CB'],
     ['LM', 'CDM', 'CAM', 'CDM', 'RM'],
@@ -95,6 +149,24 @@ final List<Formation> formations = [
     ['LM', 'CM', 'CM', 'RM'],
     ['LW', 'ST', 'RW'],
   ]),
+  _build('3-4-1-2', [
+    ['CB', 'CB', 'CB'],
+    ['LM', 'CM', 'CM', 'RM'],
+    ['CAM'],
+    ['ST', 'ST'],
+  ]),
+  _build('3-4-2-1', [
+    ['CB', 'CB', 'CB'],
+    ['LM', 'CM', 'CM', 'RM'],
+    ['CAM', 'CAM'],
+    ['ST'],
+  ]),
+  _build('3-1-4-2', [
+    ['CB', 'CB', 'CB'],
+    ['CDM'],
+    ['LM', 'CM', 'CM', 'RM'],
+    ['ST', 'ST'],
+  ]),
   _build('5-3-2', [
     ['LWB', 'CB', 'CB', 'CB', 'RWB'],
     ['CM', 'CM', 'CM'],
@@ -104,6 +176,17 @@ final List<Formation> formations = [
     ['LWB', 'CB', 'CB', 'CB', 'RWB'],
     ['LM', 'CM', 'CM', 'RM'],
     ['ST'],
+  ]),
+  _build('5-2-1-2', [
+    ['LWB', 'CB', 'CB', 'CB', 'RWB'],
+    ['CM', 'CM'],
+    ['CAM'],
+    ['ST', 'ST'],
+  ]),
+  _build('5-2-3', [
+    ['LWB', 'CB', 'CB', 'CB', 'RWB'],
+    ['CM', 'CM'],
+    ['LW', 'ST', 'RW'],
   ]),
 ];
 

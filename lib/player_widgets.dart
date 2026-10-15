@@ -378,13 +378,15 @@ Future<Player?> pickPlayer(
   BuildContext context, {
   String initialPosition = '',
   Set<int> excludeIds = const {},
+  Set<int> takenIds = const {},
 }) {
   return showModalBottomSheet<Player>(
     context: context,
     isScrollControlled: true,
     builder: (ctx) => SizedBox(
       height: MediaQuery.of(ctx).size.height * 0.92,
-      child: _PlayerPicker(initialPosition: initialPosition, excludeIds: excludeIds),
+      child: _PlayerPicker(
+          initialPosition: initialPosition, excludeIds: excludeIds, takenIds: takenIds),
     ),
   );
 }
@@ -392,8 +394,13 @@ Future<Player?> pickPlayer(
 class _PlayerPicker extends StatefulWidget {
   final String initialPosition;
   final Set<int> excludeIds;
+  final Set<int> takenIds;
 
-  const _PlayerPicker({required this.initialPosition, required this.excludeIds});
+  const _PlayerPicker({
+    required this.initialPosition,
+    required this.excludeIds,
+    required this.takenIds,
+  });
 
   @override
   State<_PlayerPicker> createState() => _PlayerPickerState();
@@ -591,10 +598,11 @@ class _PlayerPickerState extends State<_PlayerPicker> {
           );
         }
         final p = _players[i];
-        final taken = widget.excludeIds.contains(p.id);
+        final inSquad = widget.excludeIds.contains(p.id);
+        final taken = inSquad || widget.takenIds.contains(p.id);
         return PlayerTile(
           player: p,
-          note: taken ? 'In squad' : null,
+          note: inSquad ? 'In squad' : (taken ? 'Taken' : null),
           onTap: taken ? null : () => Navigator.pop(context, p),
         );
       },

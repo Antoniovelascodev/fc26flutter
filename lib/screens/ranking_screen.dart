@@ -92,7 +92,7 @@ class _RankingScreenState extends State<RankingScreen> {
                       const Padding(
                         padding: EdgeInsets.fromLTRB(10, 14, 10, 0),
                         child: Text(
-                          'P -> Played\nW -> Won\nD -> Drawn\nL -> Lost\nGF -> Goals Favor\nGA -> Goals Against\nGD -> Goal Difference',
+                          'P played · W won · D drawn · L lost · GF goals for · GA goals against · GD goal difference',
                           style: TextStyle(fontSize: 12, color: AppColors.textDim, height: 1.4),
                         ),
                       ),

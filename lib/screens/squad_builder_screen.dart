@@ -25,6 +25,7 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
   late bool _active;
   bool _dirty = false;
   bool _saving = false;
+  Set<int> _taken = {}; // players other teams already have in this league
 
   Squad get _original => widget.squad;
   bool get _isNew => _original.id == null;
@@ -36,6 +37,9 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
     _formation = _original.formation;
     _slots = Map<int, Player>.from(_original.slots);
     _active = _original.active;
+    Api.takenPlayers(_original.leagueId, _original.teamId).then((ids) {
+      if (mounted) setState(() => _taken = ids);
+    }).catchError((_) {});
   }
 
   @override
@@ -111,6 +115,25 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
     });
   }
 
+  /// Swaps two places of the squad (either can be empty). Used by drag and drop.
+  void _swap(int from, int to) {
+    if (from == to) return;
+    _change(() {
+      final a = _slots[from];
+      final b = _slots[to];
+      if (b == null) {
+        _slots.remove(from);
+      } else {
+        _slots[from] = b;
+      }
+      if (a == null) {
+        _slots.remove(to);
+      } else {
+        _slots[to] = a;
+      }
+    });
+  }
+
   Set<int> _usedIds({int? exceptSlot}) => {
         for (final e in _slots.entries)
           if (e.key != exceptSlot) e.value.id,
@@ -121,6 +144,7 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
       context,
       initialPosition: position,
       excludeIds: _usedIds(exceptSlot: slot),
+      takenIds: _taken,
     );
     if (player == null) return;
     _change(() => _slots[slot] = player);
@@ -367,14 +391,23 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
                     style: TextStyle(color: AppColors.textDim, fontSize: 12)),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
+            _SummaryRow(squad: draft),
+            const SizedBox(height: 12),
             Pitch(
               formation: formation,
               slots: _slots,
               onTap: (i) => _onSlotTap(i, formation.slots[i].position),
+              onSwap: _swap,
             ),
-            const SizedBox(height: 14),
-            _SummaryRow(squad: draft),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(4, 10, 4, 0),
+              child: Text(
+                'Tip: hold a player and drag him onto another place to swap them.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textDim, fontSize: 12),
+              ),
+            ),
             const SizedBox(height: 22),
             Text('Bench', style: displayStyle(size: 26)),
             const SizedBox(height: 10),
@@ -383,9 +416,16 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
               runSpacing: 8,
               children: [
                 for (var k = Squad.benchStart; k < Squad.benchStart + Squad.benchSize; k++)
-                  _BenchSlot(
-                    player: _slots[k],
-                    onTap: () => _onSlotTap(k, ''),
+                  DragSwapSlot(
+                    index: k,
+                    canDrag: _slots[k] != null,
+                    onSwap: _swap,
+                    width: 100,
+                    height: 92,
+                    child: _BenchSlot(
+                      player: _slots[k],
+                      onTap: () => _onSlotTap(k, ''),
+                    ),
                   ),
               ],
             ),

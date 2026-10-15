@@ -461,6 +461,13 @@ class Api {
     return Squad.fromJson(data as Map<String, dynamic>);
   }
 
+  /// Players the other teams already have in this league (they cannot be chosen again).
+  static Future<Set<int>> takenPlayers(int leagueId, int teamId) async {
+    if (demoMode) return {};
+    final data = await _get('/squads/taken?leagueId=$leagueId&teamId=$teamId') as List;
+    return data.map((e) => (e as num).toInt()).toSet();
+  }
+
   static Future<void> deleteSquad(int id) async {
     if (demoMode) {
       await _latency();

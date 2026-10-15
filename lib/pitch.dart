@@ -16,12 +16,16 @@ class Pitch extends StatelessWidget {
   /// Optional small text under a player's name (e.g. his rating), by slot.
   final Map<int, String> tags;
 
+  /// When set, a player can be dragged (long press) onto another place to swap them.
+  final void Function(int from, int to)? onSwap;
+
   const Pitch({
     super.key,
     required this.formation,
     required this.slots,
     this.onTap,
     this.tags = const {},
+    this.onSwap,
   });
 
   static const double _slotW = 66;
@@ -51,11 +55,18 @@ class Pitch extends StatelessWidget {
                   top: formation.slots[i].y * h - _slotH / 2,
                   width: slotW,
                   height: _slotH,
-                  child: _PitchSlot(
-                    position: formation.slots[i].position,
-                    player: slots[i],
-                    tag: tags[i],
-                    onTap: onTap == null ? null : () => onTap!(i),
+                  child: DragSwapSlot(
+                    index: i,
+                    canDrag: slots[i] != null,
+                    onSwap: onSwap,
+                    width: slotW,
+                    height: _slotH,
+                    child: _PitchSlot(
+                      position: formation.slots[i].position,
+                      player: slots[i],
+                      tag: tags[i],
+                      onTap: onTap == null ? null : () => onTap!(i),
+                    ),
                   ),
                 ),
             ],
@@ -201,4 +212,61 @@ class _PitchPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Makes a squad place draggable (long press) and a drop target: dropping a
+/// player on another place swaps both. [index] is the squad slot (0-10 = XI, 11+ = bench).
+class DragSwapSlot extends StatelessWidget {
+  final int index;
+  final bool canDrag;
+  final void Function(int from, int to)? onSwap;
+  final double width;
+  final double height;
+  final Widget child;
+
+  const DragSwapSlot({
+    super.key,
+    required this.index,
+    required this.canDrag,
+    required this.onSwap,
+    required this.width,
+    required this.height,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (onSwap == null) return child;
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (d) => d.data != index,
+      onAcceptWithDetails: (d) => onSwap!(d.data, index),
+      builder: (context, candidate, _) {
+        final hot = candidate.isNotEmpty;
+        final content = AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            color: hot ? Colors.white24 : Colors.transparent,
+            border: hot ? Border.all(color: Colors.white, width: 2) : null,
+          ),
+          child: child,
+        );
+        if (!canDrag) return content;
+        return LongPressDraggable<int>(
+          data: index,
+          delay: const Duration(milliseconds: 220),
+          feedback: Material(
+            color: Colors.transparent,
+            child: SizedBox(
+              width: width,
+              height: height,
+              child: Opacity(opacity: 0.92, child: child),
+            ),
+          ),
+          childWhenDragging: Opacity(opacity: 0.3, child: content),
+          child: content,
+        );
+      },
+    );
+  }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'api.dart';
 import 'download_stub.dart' if (dart.library.js_interop) 'download_web.dart';
 import 'screens/head_to_head_screen.dart';
+import 'screens/players_screen.dart';
 import 'screens/league_screen.dart';
 import 'screens/new_match_screen.dart';
 import 'screens/ranking_screen.dart';
@@ -23,7 +24,7 @@ class MegaLigueApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FC26 MegaLigue',
+      title: 'Artillería League',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
       builder: (context, child) => DecoratedBox(
@@ -52,7 +53,14 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _titles = ['MegaLigue', 'New match', 'Head to head', 'Leagues', 'Squads'];
+  static const _titles = [
+    'Artillería League',
+    'New match',
+    'Head to head',
+    'Leagues',
+    'Squads',
+    'Players',
+  ];
 
   Future<void> _editKey() async {
     final controller = TextEditingController(text: Api.apiKey);
@@ -244,6 +252,7 @@ class _HomeShellState extends State<HomeShell> {
                 HeadToHeadScreen(),
                 LeagueScreen(),
                 SquadsScreen(),
+                PlayersScreen(),
               ],
             ),
           ),
@@ -261,11 +270,11 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(
             icon: Icon(Icons.sports_soccer_outlined),
             selectedIcon: Icon(Icons.sports_soccer),
-            label: 'New match',
+            label: 'Match',
           ),
           NavigationDestination(
             icon: Icon(Icons.compare_arrows),
-            label: 'Head to head',
+            label: 'H2H',
           ),
           NavigationDestination(
             icon: Icon(Icons.emoji_events_outlined),
@@ -276,6 +285,11 @@ class _HomeShellState extends State<HomeShell> {
             icon: Icon(Icons.groups_outlined),
             selectedIcon: Icon(Icons.groups),
             label: 'Squads',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_search_outlined),
+            selectedIcon: Icon(Icons.person_search),
+            label: 'Players',
           ),
         ],
       ),
