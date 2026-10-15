@@ -26,6 +26,17 @@ class MegaLigueApp extends StatelessWidget {
       title: 'FC26 MegaLigue',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
+      builder: (context, child) => DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF121C42), AppColors.ink, Color(0xFF080D1E)],
+            stops: [0, 0.45, 1],
+          ),
+        ),
+        child: child,
+      ),
       home: const HomeShell(),
     );
   }

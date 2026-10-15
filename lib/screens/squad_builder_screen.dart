@@ -473,7 +473,7 @@ class _BenchSlot extends StatelessWidget {
               )
             : Column(
                 children: [
-                  OvrBadge(overall: p.overall, size: 34),
+                  PlayerAvatar(player: p, size: 38),
                   const SizedBox(height: 4),
                   Text(p.shortName,
                       maxLines: 1,

@@ -105,7 +105,7 @@ class _PitchSlot extends StatelessWidget {
                   child: const Icon(Icons.add, color: Colors.white70, size: 20),
                 )
               else
-                OvrBadge(overall: p.overall, size: 42),
+                PlayerAvatar(player: p, size: 44),
               if (offPosition)
                 Positioned(
                   right: -4,

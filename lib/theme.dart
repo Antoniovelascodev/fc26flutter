@@ -92,9 +92,9 @@ ThemeData buildTheme() {
   );
 
   return base.copyWith(
-    scaffoldBackgroundColor: AppColors.ink,
+    scaffoldBackgroundColor: Colors.transparent,
     appBarTheme: AppBarTheme(
-      backgroundColor: AppColors.ink,
+      backgroundColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,

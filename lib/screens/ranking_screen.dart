@@ -86,6 +86,8 @@ class _RankingScreenState extends State<RankingScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _LeaderCard(entry: entries.first),
+                      const SizedBox(height: 12),
                       LeagueTable(entries: entries),
                       const Padding(
                         padding: EdgeInsets.fromLTRB(10, 14, 10, 0),
@@ -302,6 +304,68 @@ class _MegaStats extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The team at the top of the table, shown big.
+class _LeaderCard extends StatelessWidget {
+  final RankingEntry entry;
+
+  const _LeaderCard({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = teamColor(entry.teamName);
+    final gd = entry.goalDifference;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color.withAlpha(120), AppColors.surface],
+        ),
+        border: Border.all(color: color.withAlpha(140)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.emoji_events, size: 16, color: Color(0xFFFFD166)),
+                    const SizedBox(width: 6),
+                    const Text('LEADER',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                            color: AppColors.textDim)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(entry.teamName, style: displayStyle(size: 40)),
+                const SizedBox(height: 4),
+                Text(
+                  '${entry.matchesPlayed} played  ·  ${entry.wins}W ${entry.draws}D ${entry.losses}L'
+                  '  ·  GD ${gd > 0 ? '+' : ''}$gd',
+                  style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            children: [
+              Text('${entry.points}', style: displayStyle(size: 64, weight: FontWeight.w900)),
+              const Text('PTS', style: TextStyle(color: AppColors.textDim, fontSize: 11)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

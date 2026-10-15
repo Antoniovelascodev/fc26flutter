@@ -17,6 +17,97 @@ Color ratingColor(int overall) {
   return AppColors.draw;
 }
 
+/// Official portrait of a player (same CDN and ids as the EA ratings site).
+/// Players that are not there get their initials instead.
+String playerPhotoUrl(int playerId) =>
+    'https://ratings-images-prod.pulse.ea.com/FC25/full/player-portraits/p$playerId.png';
+
+/// Round portrait with the overall rating in a small badge.
+class PlayerAvatar extends StatelessWidget {
+  final Player player;
+  final double size;
+  final bool showRating;
+
+  const PlayerAvatar({
+    super.key,
+    required this.player,
+    this.size = 46,
+    this.showRating = true,
+  });
+
+  String get _initials {
+    final parts = player.shortName.replaceAll('.', ' ').trim().split(RegExp(r'\s+'));
+    final last = parts.isNotEmpty ? parts.last : '?';
+    return last.isEmpty ? '?' : last.substring(0, last.length < 2 ? last.length : 2).toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = ratingColor(player.overall);
+    final fallback = Container(
+      color: color.withAlpha(70),
+      alignment: Alignment.center,
+      child: Text(_initials,
+          style: TextStyle(
+              fontWeight: FontWeight.w900, fontSize: size * 0.34, color: AppColors.text)),
+    );
+    return SizedBox(
+      width: size + 4,
+      height: size + 4,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: color, width: 2),
+              ),
+              child: ClipOval(
+                child: Image.network(
+                  playerPhotoUrl(player.id),
+                  width: size,
+                  height: size,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                  webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, _, _) => fallback,
+                  loadingBuilder: (context, child, progress) =>
+                      progress == null ? child : fallback,
+                ),
+              ),
+            ),
+          ),
+          if (showRating)
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: size * 0.1, vertical: 1),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(size * 0.18),
+                  border: Border.all(color: AppColors.ink, width: 1.5),
+                ),
+                child: Text('${player.overall}',
+                    style: TextStyle(
+                        fontSize: size * 0.27,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.ink,
+                        height: 1.1)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Square badge with the overall rating.
 class OvrBadge extends StatelessWidget {
   final int overall;
@@ -67,7 +158,7 @@ class PlayerTile extends StatelessWidget {
       child: ListTile(
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-        leading: OvrBadge(overall: player.overall),
+        leading: PlayerAvatar(player: player, size: 46),
         title: Text(
           player.shortName,
           maxLines: 1,
@@ -113,7 +204,7 @@ Future<void> showPlayerDetail(BuildContext context, Player p) {
           children: [
             Row(
               children: [
-                OvrBadge(overall: p.overall, size: 64),
+                PlayerAvatar(player: p, size: 78),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(

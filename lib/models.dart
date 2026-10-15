@@ -468,7 +468,7 @@ class PlayerPage {
 /// Starting XI (slots 0-10, in the order of the formation) + bench (11+).
 class Squad {
   static const int benchStart = 11;
-  static const int benchSize = 7;
+  static const int benchSize = 10;
 
   final int? id;
   final int leagueId;
