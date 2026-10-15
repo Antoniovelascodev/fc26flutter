@@ -92,6 +92,9 @@ class MatchItem {
   final String result; // HOME_WIN, AWAY_WIN, DRAW
   final List<GoalItem> goals;
 
+  /// Marks given in the match (empty if nobody rated the players).
+  final List<MarkItem> marks;
+
   MatchItem({
     required this.id,
     required this.homeTeamName,
@@ -102,6 +105,7 @@ class MatchItem {
     required this.matchDate,
     required this.result,
     this.goals = const [],
+    this.marks = const [],
   });
 
   factory MatchItem.fromJson(Map<String, dynamic> j) => MatchItem(
@@ -116,10 +120,42 @@ class MatchItem {
         goals: ((j['goals'] as List?) ?? [])
             .map((e) => GoalItem.fromJson(e as Map<String, dynamic>))
             .toList(),
+        marks: ((j['ratings'] as List?) ?? [])
+            .map((e) => MarkItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
+
+  /// The best marked player of the match (null if there are no marks).
+  MarkItem? get mvp {
+    if (marks.isEmpty) return null;
+    final sorted = [...marks]..sort((a, b) => b.rating.compareTo(a.rating));
+    return sorted.first;
+  }
 
   List<GoalItem> goalsOf(String teamName) =>
       goals.where((g) => g.teamName == teamName).toList();
+}
+
+/// The mark of a player in a saved match.
+class MarkItem {
+  final int playerId;
+  final String playerName;
+  final String teamName;
+  final double rating;
+
+  MarkItem({
+    required this.playerId,
+    required this.playerName,
+    required this.teamName,
+    required this.rating,
+  });
+
+  factory MarkItem.fromJson(Map<String, dynamic> j) => MarkItem(
+        playerId: _toInt(j['playerId']),
+        playerName: j['playerName'] as String? ?? '',
+        teamName: j['teamName'] as String? ?? '',
+        rating: (j['rating'] as num?)?.toDouble() ?? 0,
+      );
 }
 
 /// A scorer of a saved match.

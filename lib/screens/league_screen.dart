@@ -61,52 +61,75 @@ class _LeagueScreenState extends State<LeagueScreen> {
     }
   }
 
-  Future<void> _editBudget(League league) async {
-    final controller = TextEditingController(text: '${league.budgetMillions ?? ''}');
-    final result = await showDialog<({bool clear, int? value})>(
+  Future<void> _editLeague(League league) async {
+    final nameController = TextEditingController(text: league.name);
+    final budgetController = TextEditingController(text: '${league.budgetMillions ?? ''}');
+    final result = await showDialog<({String name, int? budget})>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text('Squad budget', style: displayStyle(size: 28)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Maximum value of a squad (starters and bench) in this league. '
-              'Squads above it cannot be saved.',
-              style: TextStyle(color: AppColors.textDim, height: 1.4, fontSize: 13),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text('Edit league', style: displayStyle(size: 28)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'League name'),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: budgetController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Squad budget (empty = no limit)',
+                    suffixText: 'M€',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final m in [200, 300, 400, 500])
+                      ActionChip(
+                        label: Text('${m}M'),
+                        backgroundColor: AppColors.surfaceHi,
+                        side: BorderSide.none,
+                        onPressed: () => setLocal(() => budgetController.text = '$m'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Squads already saved are not changed, but they cannot be saved again '
+                  'above a lower budget.',
+                  style: TextStyle(color: AppColors.textDim, fontSize: 12, height: 1.4),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Millions of euros', suffixText: 'M€'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, (
+                name: nameController.text.trim(),
+                budget: int.tryParse(budgetController.text.trim()),
+              )),
+              child: const Text('Save'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, (clear: true, value: null)),
-            child: const Text('No limit'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(
-                ctx, (clear: false, value: int.tryParse(controller.text.trim()))),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
-    if (result == null) return;
-    if (!result.clear && result.value == null) return;
+    if (result == null || result.name.isEmpty) return;
     try {
-      await Api.setLeagueBudget(league, result.clear ? null : result.value);
+      await Api.updateLeague(league, name: result.name, budgetMillions: result.budget);
       notifyDataChanged();
       if (!mounted) return;
-      _toast(context, result.clear ? 'Budget removed' : 'Budget set to ${result.value}M');
+      _toast(context, 'League updated');
     } catch (e) {
       if (!mounted) return;
       _toast(context, e.toString());
@@ -183,14 +206,14 @@ class _LeagueScreenState extends State<LeagueScreen> {
                 icon: const Icon(Icons.more_vert, color: AppColors.textDim),
                 onSelected: (v) {
                   if (v == 'delete') _deleteLeague(league);
-                  if (v == 'budget') _editBudget(league);
+                  if (v == 'budget') _editLeague(league);
                 },
                 itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'budget',
                     child: Text(league.budgetMillions == null
-                        ? 'Set squad budget…'
-                        : 'Squad budget: ${league.budgetMillions}M…'),
+                        ? 'Edit name / budget…'
+                        : 'Edit name / budget (${league.budgetMillions}M)…'),
                   ),
                   const PopupMenuItem(
                     value: 'delete',

@@ -73,7 +73,12 @@ class ScorerList extends StatelessWidget {
                     width: 26,
                     child: Text('${i + 1}',
                         style: displayStyle(
-                            size: 24, color: i == 0 ? AppColors.text : AppColors.textDim)),
+                            size: 24,
+                            color: i == 0
+                                ? const Color(0xFFFFD166)
+                                : (i == 1
+                                    ? const Color(0xFFC9D1E6)
+                                    : (i == 2 ? const Color(0xFFD58A4A) : AppColors.textDim)))),
                   ),
                   Container(
                     width: 4,

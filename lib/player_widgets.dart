@@ -157,6 +157,8 @@ class PlayerTile extends StatelessWidget {
       opacity: disabled ? 0.45 : 1,
       child: ListTile(
         onTap: onTap,
+        tileColor: ratingColor(player.overall).withAlpha(20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
         leading: PlayerAvatar(player: player, size: 46),
         title: Text(

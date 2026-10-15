@@ -76,7 +76,7 @@ class _HomeShellState extends State<HomeShell> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Needed to save or delete matches. Ask the group admin for it.',
+              'Only needed to delete things (matches, leagues, squads). Everything else works without it.',
               style: TextStyle(color: AppColors.textDim, height: 1.4),
             ),
             const SizedBox(height: 14),

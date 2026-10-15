@@ -248,8 +248,15 @@ class MatchStrip extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
+        gradient: LinearGradient(
+          colors: [
+            teamWash(homeColor, strength: 46),
+            AppColors.surface,
+            teamWash(awayColor, strength: 46),
+          ],
+          stops: const [0, 0.5, 1],
+        ),
       ),
       child: IntrinsicHeight(
         child: Row(
@@ -319,6 +326,16 @@ class MatchStrip extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (match.mvp != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '⭐ MVP: ${match.mvp!.playerName} (${match.mvp!.teamName}) '
+                        '${match.mvp!.rating == match.mvp!.rating.roundToDouble() ? match.mvp!.rating.toStringAsFixed(0) : match.mvp!.rating.toStringAsFixed(1)}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xFFFFD166), fontWeight: FontWeight.w700),
+                      ),
+                    ],
                     if (match.goals.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Row(

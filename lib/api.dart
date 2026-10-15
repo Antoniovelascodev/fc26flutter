@@ -277,6 +277,23 @@ class Api {
     });
   }
 
+  /// Changes the name and the budget (null = no limit) of a league.
+  static Future<void> updateLeague(League league, {required String name, int? budgetMillions}) async {
+    if (demoMode) {
+      await _latency();
+      final i = _Demo.leagues.indexWhere((l) => l.id == league.id);
+      if (i >= 0) {
+        _Demo.leagues[i] = League(id: league.id, name: name, budgetMillions: budgetMillions);
+      }
+      return;
+    }
+    await _put('/leagues/${league.id}', {
+      'name': name,
+      'description': league.description ?? '',
+      'budgetMillions': budgetMillions,
+    });
+  }
+
   /// Sets (or removes, with null) the maximum value of a squad in the league.
   static Future<void> setLeagueBudget(League league, int? millions) async {
     if (demoMode) {
