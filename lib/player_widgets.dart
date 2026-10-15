@@ -19,8 +19,9 @@ Color ratingColor(int overall) {
 
 /// Official portrait of a player (same CDN and ids as the EA ratings site).
 /// Players that are not there get their initials instead.
-String playerPhotoUrl(int playerId) =>
-    'https://ratings-images-prod.pulse.ea.com/FC25/full/player-portraits/p$playerId.png';
+String playerPhotoUrl(int playerId) => demoMode
+    ? 'https://ratings-images-prod.pulse.ea.com/FC25/full/player-portraits/p$playerId.png'
+    : '$baseUrl/players/$playerId/photo?w=160';
 
 /// Round portrait with the overall rating in a small badge.
 class PlayerAvatar extends StatelessWidget {
@@ -74,7 +75,8 @@ class PlayerAvatar extends StatelessWidget {
                   height: size,
                   fit: BoxFit.cover,
                   alignment: Alignment.topCenter,
-                  webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                  // Never use HTML <img> elements: they float over sheets and steal touches.
+                  webHtmlElementStrategy: WebHtmlElementStrategy.never,
                   gaplessPlayback: true,
                   errorBuilder: (_, _, _) => fallback,
                   loadingBuilder: (context, child, progress) =>
