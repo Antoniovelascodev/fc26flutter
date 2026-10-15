@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
 import 'download_stub.dart' if (dart.library.js_interop) 'download_web.dart';
@@ -53,6 +54,32 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreTab();
+  }
+
+  /// If the browser reloads the page, come back to the screen you were on.
+  Future<void> _restoreTab() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getInt('tab_index');
+      if (saved != null && saved >= 0 && saved < _titles.length && mounted) {
+        setState(() => _index = saved);
+      }
+    } catch (_) {
+      // Not important.
+    }
+  }
+
+  void _go(int index) {
+    _go(index);
+    SharedPreferences.getInstance()
+        .then((prefs) => prefs.setInt('tab_index', index))
+        .catchError((_) => true);
+  }
 
   static const _titles = [
     'Artillería League',
@@ -268,7 +295,7 @@ class _HomeShellState extends State<HomeShell> {
           if (i == 2) {
             _scaffoldKey.currentState?.openDrawer();
           } else {
-            setState(() => _index = i);
+            _go(i);
           }
         },
         destinations: const [
