@@ -49,10 +49,9 @@ class _AsyncViewState<T> extends State<AsyncView<T>> {
       future: _future,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return Padding(
-            padding: EdgeInsets.all(widget.compact ? 20 : 48),
-            child: const Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
-          );
+          return widget.compact
+              ? const Padding(padding: EdgeInsets.symmetric(vertical: 6), child: SkeletonList(rows: 3, shrink: true))
+              : const SkeletonList(rows: 5);
         }
         if (snap.hasError) {
           return ErrorView(error: snap.error!, onRetry: _reload);

@@ -598,7 +598,27 @@ class Api {
       return _Demo.ranking();
     }
     final data = await _get('/mega-league/ranking') as List;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('ranking_cache', jsonEncode(data));
+    } catch (_) {
+      // The cache is only a speed-up.
+    }
     return data.map((e) => RankingEntry.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Last table received from the server, shown instantly while the free server wakes up.
+  static Future<List<RankingEntry>?> cachedRanking() async {
+    if (demoMode) return null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('ranking_cache');
+      if (raw == null) return null;
+      final data = jsonDecode(raw) as List;
+      return data.map((e) => RankingEntry.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return null;
+    }
   }
 }
 

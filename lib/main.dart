@@ -53,6 +53,9 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+  /// Tabs already opened: the rest are not built until visited, so the app starts
+  /// with one request instead of six while the free server is still waking up.
+  final Set<int> _visited = {0};
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -67,7 +70,10 @@ class _HomeShellState extends State<HomeShell> {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getInt('tab_index');
       if (saved != null && saved >= 0 && saved < _titles.length && mounted) {
-        setState(() => _index = saved);
+        setState(() {
+          _index = saved;
+          _visited.add(saved);
+        });
       }
     } catch (_) {
       // Not important.
@@ -75,11 +81,23 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _go(int index) {
-    _go(index);
+    setState(() {
+      _index = index;
+      _visited.add(index);
+    });
     SharedPreferences.getInstance()
         .then((prefs) => prefs.setInt('tab_index', index))
         .catchError((_) => true);
   }
+
+  static final List<Widget Function()> _builders = [
+    () => const RankingScreen(),
+    () => const NewMatchScreen(),
+    () => const HeadToHeadScreen(),
+    () => const LeagueScreen(),
+    () => const SquadsScreen(),
+    () => const PlayersScreen(),
+  ];
 
   static const _titles = [
     'Artillería League',
@@ -276,13 +294,9 @@ class _HomeShellState extends State<HomeShell> {
           Expanded(
             child: IndexedStack(
               index: _index,
-              children: const [
-                RankingScreen(),
-                NewMatchScreen(),
-                HeadToHeadScreen(),
-                LeagueScreen(),
-                SquadsScreen(),
-                PlayersScreen(),
+              children: [
+                for (var i = 0; i < _builders.length; i++)
+                  _visited.contains(i) ? _builders[i]() : const SizedBox.shrink(),
               ],
             ),
           ),
@@ -330,7 +344,7 @@ class _HomeShellState extends State<HomeShell> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           onTap: () {
             Navigator.pop(context);
-            setState(() => _index = index);
+            _go(index);
           },
         );
     return Drawer(
@@ -341,7 +355,18 @@ class _HomeShellState extends State<HomeShell> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 16),
-              child: Text('Artillería League', style: displayStyle(size: 34)),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.asset('assets/logo.png', width: 64, height: 64),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text('Artillería League', style: displayStyle(size: 28)),
+                  ),
+                ],
+              ),
             ),
             item(0, Icons.leaderboard, 'Table'),
             item(1, Icons.sports_soccer, 'New match'),

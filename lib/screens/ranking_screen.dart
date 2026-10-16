@@ -24,11 +24,15 @@ class RankingScreen extends StatefulWidget {
 
 class _RankingScreenState extends State<RankingScreen> {
   late Future<List<RankingEntry>> _future;
+  List<RankingEntry>? _cached;
 
   @override
   void initState() {
     super.initState();
     _future = Api.ranking();
+    Api.cachedRanking().then((c) {
+      if (mounted) setState(() => _cached = c);
+    });
     dataVersion.addListener(_reload);
   }
 
@@ -59,13 +63,14 @@ class _RankingScreenState extends State<RankingScreen> {
     return FutureBuilder<List<RankingEntry>>(
       future: _future,
       builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+        final loading = snap.connectionState != ConnectionState.done;
+        if (loading && (_cached == null || _cached!.isEmpty)) {
+          return const SkeletonList(rows: 4);
         }
-        if (snap.hasError) {
+        if (!loading && snap.hasError) {
           return ErrorView(error: snap.error!, onRetry: _reload);
         }
-        final entries = snap.data!;
+        final entries = loading ? _cached! : snap.data!;
         if (entries.isEmpty) {
           return const EmptyView(
             title: 'No results yet',
@@ -79,6 +84,14 @@ class _RankingScreenState extends State<RankingScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
             children: [
+              if (loading)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.all(Radius.circular(4)),
+                    child: LinearProgressIndicator(minHeight: 3),
+                  ),
+                ),
               Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
@@ -222,7 +235,12 @@ class _DataRow extends StatelessWidget {
               '$position',
               style: displayStyle(
                 size: 24,
-                color: leader ? AppColors.text : AppColors.textDim,
+                color: switch (position) {
+                  1 => const Color(0xFFFFD166),
+                  2 => const Color(0xFFD5DBE8),
+                  3 => const Color(0xFFD99A6C),
+                  _ => AppColors.textDim,
+                },
               ),
             ),
           ),

@@ -411,3 +411,61 @@ class _Scorers extends StatelessWidget {
     );
   }
 }
+
+/// Placeholder rows that pulse while data loads (calmer than a spinner and keeps the layout stable).
+class SkeletonList extends StatefulWidget {
+  final int rows;
+
+  /// Inside another scrollable block: takes only the space it needs.
+  final bool shrink;
+
+  const SkeletonList({super.key, this.rows = 5, this.shrink = false});
+
+  @override
+  State<SkeletonList> createState() => _SkeletonListState();
+}
+
+class _SkeletonListState extends State<SkeletonList> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final color = Color.lerp(AppColors.surface, AppColors.surfaceHi, _c.value)!;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < widget.rows; i++)
+              Container(
+                height: 58,
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+    if (widget.shrink) return list;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640),
+        child: Padding(padding: const EdgeInsets.fromLTRB(8, 4, 8, 0), child: list),
+      ),
+    );
+  }
+}

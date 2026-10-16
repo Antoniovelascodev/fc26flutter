@@ -33,10 +33,18 @@
   <style>
     /* Stops the mobile browser from reloading the page when you scroll up at the top */
     html, body { height: 100%; margin: 0; overscroll-behavior: none; background: #0C1226; }
+    /* Splash shown while the app downloads; the app covers it once it paints. */
+    #splash { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 22px; background: radial-gradient(circle at 50% 35%, #1b2a66, #0C1226 70%); }
+    #splash img { width: 132px; height: 132px; border-radius: 30px; box-shadow: 0 10px 40px rgba(255,200,61,.25);
+      animation: pulse 1.6s ease-in-out infinite; }
+    #splash span { color: #8E9AC4; font: 600 14px system-ui, sans-serif; letter-spacing: .5px; }
+    @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
   </style>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <div id="splash"><img src="icons/Icon-192.png" alt=""><span>Artillería League</span></div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

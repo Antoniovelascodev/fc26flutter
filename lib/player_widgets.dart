@@ -8,13 +8,14 @@ import 'player_filters.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
-/// Card color by overall rating (roughly like the game's tiers).
+/// Color by rating or attribute value, from red (bad) to intense green (elite):
+/// <=59 red, 60-69 yellow, 70-80 green, 81-89 stronger green, 90+ vivid green.
 Color ratingColor(int overall) {
-  if (overall >= 90) return const Color(0xFFFFD166);
-  if (overall >= 85) return const Color(0xFF9BE564);
-  if (overall >= 75) return const Color(0xFF35E0B0);
-  if (overall >= 65) return const Color(0xFF4C8DFF);
-  return AppColors.draw;
+  if (overall >= 90) return const Color(0xFF00FF88); // neon: clearly above the rest
+  if (overall >= 81) return const Color(0xFF1E9E52); // deep green
+  if (overall >= 70) return const Color(0xFF6FAE2F); // clear green, far from yellow
+  if (overall >= 60) return const Color(0xFFFFE000); // pure yellow
+  return const Color(0xFFF2463C);
 }
 
 /// Official portrait of a player (same CDN and ids as the EA ratings site).
@@ -457,6 +458,8 @@ Future<Player?> pickPlayer(
   );
 }
 
+String _millions(int eur) => '${(eur / 1000000).toStringAsFixed(eur % 1000000 == 0 ? 0 : 1)}M';
+
 class _PlayerPicker extends StatefulWidget {
   final String initialPosition;
   final Set<int> excludeIds;
@@ -481,8 +484,8 @@ class _PlayerPickerState extends State<_PlayerPicker> {
   int _request = 0;
 
   late String _position = widget.initialPosition;
-  late PlayerFilters _filters = PlayerFilters()
-    ..maxValueM = widget.maxValueEur == null ? null : widget.maxValueEur! / 1000000;
+  // No price filter by default: the remaining budget is shown and enforced when picking.
+  PlayerFilters _filters = PlayerFilters();
   final List<Player> _players = [];
   int _page = 0;
   bool _hasNext = false;
@@ -632,7 +635,8 @@ class _PlayerPickerState extends State<_PlayerPicker> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                     '$_total players  ·  sorted by ${sortLabel(_filters.sort).toLowerCase()}'
-                    '${_filters.ascending ? ' (low to high)' : ''}',
+                    '${_filters.ascending ? ' (low to high)' : ''}'
+                    '${widget.maxValueEur == null ? '' : '  ·  budget left ${_millions(widget.maxValueEur!)}'}',
                     style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
               ),
             ),
@@ -668,11 +672,14 @@ class _PlayerPickerState extends State<_PlayerPicker> {
         }
         final p = _players[i];
         final inSquad = widget.excludeIds.contains(p.id);
-        final taken = inSquad || widget.takenIds.contains(p.id);
+        final owned = inSquad || widget.takenIds.contains(p.id);
+        final overBudget =
+            widget.maxValueEur != null && (p.valueEur ?? 0) > widget.maxValueEur!;
+        final blocked = owned || overBudget;
         return PlayerTile(
           player: p,
-          note: inSquad ? 'In squad' : (taken ? 'Taken' : null),
-          onTap: taken ? null : () => Navigator.pop(context, p),
+          note: inSquad ? 'In squad' : (owned ? 'Taken' : (overBudget ? 'Over budget' : null)),
+          onTap: blocked ? null : () => Navigator.pop(context, p),
         );
       },
     );
