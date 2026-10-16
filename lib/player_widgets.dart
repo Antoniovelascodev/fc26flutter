@@ -72,6 +72,10 @@ class PlayerAvatar extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: color, width: 2),
+                // Elite players (90+) glow
+                boxShadow: player.overall >= 90
+                    ? [BoxShadow(color: color.withAlpha(170), blurRadius: 10, spreadRadius: 1)]
+                    : null,
               ),
               child: ClipOval(
                 child: Image.network(
