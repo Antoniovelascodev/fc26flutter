@@ -39,7 +39,9 @@ class _RatingsCardState extends State<RatingsCard> {
   }
 
   Future<void> _load() async {
-    widget.marks.clear();
+    // Built apart and copied at the end only if this card is still on screen: a slower
+    // load of previously chosen teams can no longer add its players a second time.
+    final loaded = <MatchMark>[];
     for (final team in [widget.home, widget.away]) {
       try {
         final squads = await Api.squads(leagueId: widget.leagueId, teamId: team.id);
@@ -54,7 +56,7 @@ class _RatingsCardState extends State<RatingsCard> {
         }
         final slots = squad.slots.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
         for (final e in slots) {
-          widget.marks.add(MatchMark(
+          loaded.add(MatchMark(
             player: e.value,
             teamId: team.id,
             bench: e.key >= Squad.benchStart,
@@ -65,6 +67,9 @@ class _RatingsCardState extends State<RatingsCard> {
       }
     }
     if (!mounted) return;
+    widget.marks
+      ..clear()
+      ..addAll(loaded);
     setState(() => _loading = false);
     widget.onChanged();
   }
@@ -214,8 +219,8 @@ class _RatingsCardState extends State<RatingsCard> {
                 Text('How did they play?', style: displayStyle(size: 24)),
                 const SizedBox(height: 2),
                 const Text(
-                  'Whoever watched the match marks the players. Everybody starts with a 6: '
-                  'only change those who stood out. The best XI is built from these marks. '
+                  'Whoever watched the match marks the players. Everybody starts with a 6 '
+                  '(scorers get +1.5 automatically): only change those who stood out. The best XI is built from these marks. '
                   '✕ = did not play.',
                   style: TextStyle(color: AppColors.textDim, fontSize: 12, height: 1.4),
                 ),

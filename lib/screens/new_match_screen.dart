@@ -100,6 +100,23 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
         if (s.goals <= 0) _scorers.remove(s);
       }
     }
+    _applyScoringBonus();
+  }
+
+  /// Scorers get +1.5 on their mark (and +0.5 for each extra goal), automatically.
+  /// The bonus is tracked per player so removing the goal takes it back and manual
+  /// changes of the mark are kept.
+  void _applyScoringBonus() {
+    for (final m in _marks) {
+      final goals = _scorers
+          .where((s) => s.player.id == m.player.id && s.teamId == m.teamId)
+          .fold<int>(0, (a, s) => a + s.goals);
+      final target = goals > 0 ? 1.5 + 0.5 * (goals - 1) : 0.0;
+      if (target == m.bonus) continue;
+      m.rating = (m.rating + target - m.bonus).clamp(0, 10).toDouble();
+      m.bonus = target;
+      if (goals > 0) m.played = true;
+    }
   }
 
   void _toast(String message) {
@@ -181,6 +198,7 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
       });
       _toast('Saved: ${home.name} $hg-$ag ${away.name}');
       notifyDataChanged();
+      tabRequest.value = 0; // back to the table
     } catch (e) {
       _toast(e.toString());
     } finally {
@@ -285,7 +303,7 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
             leagueId: _leagueId,
             scorers: _scorers,
             ownGoals: _ownGoals,
-            onChanged: () => setState(() {}),
+            onChanged: () => setState(_applyScoringBonus),
           ),
         if (home != null && away != null)
           RatingsCard(
@@ -294,7 +312,7 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
             away: away,
             leagueId: _leagueId,
             marks: _marks,
-            onChanged: () => setState(() {}),
+            onChanged: () => setState(_applyScoringBonus),
           ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),

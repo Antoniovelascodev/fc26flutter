@@ -62,6 +62,20 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     _restoreTab();
+    tabRequest.addListener(_onTabRequest);
+  }
+
+  @override
+  void dispose() {
+    tabRequest.removeListener(_onTabRequest);
+    super.dispose();
+  }
+
+  void _onTabRequest() {
+    final tab = tabRequest.value;
+    if (tab == null || !mounted) return;
+    tabRequest.value = null;
+    _go(tab);
   }
 
   /// If the browser reloads the page, come back to the screen you were on.

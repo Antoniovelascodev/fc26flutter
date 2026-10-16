@@ -34,6 +34,9 @@ String get baseUrl {
 final ValueNotifier<int> dataVersion = ValueNotifier<int>(0);
 void notifyDataChanged() => dataVersion.value++;
 
+/// Asks the home shell to open a tab (0 = Table), e.g. after saving a match.
+final ValueNotifier<int?> tabRequest = ValueNotifier<int?>(null);
+
 /// true while a request is taking suspiciously long (the free server is waking up).
 final ValueNotifier<bool> waking = ValueNotifier<bool>(false);
 

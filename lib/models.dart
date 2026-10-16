@@ -188,6 +188,9 @@ class MatchMark {
   double rating;
   bool played;
 
+  /// Points added automatically because the player scored (so they can be undone).
+  double bonus = 0;
+
   MatchMark({
     required this.player,
     required this.teamId,
