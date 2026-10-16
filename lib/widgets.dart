@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'models.dart';
+import 'player_widgets.dart';
 import 'theme.dart';
 
 const _months = [
@@ -332,8 +333,10 @@ class MatchStrip extends StatelessWidget {
                         '⭐ MVP: ${match.mvp!.playerName} (${match.mvp!.teamName}) '
                         '${match.mvp!.rating == match.mvp!.rating.roundToDouble() ? match.mvp!.rating.toStringAsFixed(0) : match.mvp!.rating.toStringAsFixed(1)}',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 11, color: Color(0xFFFFD166), fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: markColor(match.mvp!.rating),
+                            fontWeight: FontWeight.w700),
                       ),
                     ],
                     if (match.goals.isNotEmpty) ...[

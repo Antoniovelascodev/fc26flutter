@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'formations.dart';
 import 'models.dart';
 import 'pitch.dart';
+import 'player_widgets.dart';
 import 'theme.dart';
 
 /// Picks the best XI for a formation from the rated players: slots with fewer
@@ -109,6 +110,9 @@ class _BestXiViewState extends State<BestXiView> {
           tags: {
             for (final e in xi.entries)
               e.key: '${e.value.rating!.toStringAsFixed(1)} (${e.value.ratedIn})',
+          },
+          tagColors: {
+            for (final e in xi.entries) e.key: markColor(e.value.rating!),
           },
         ),
         const SizedBox(height: 10),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api.dart';
 import 'models.dart';
+import 'player_widgets.dart';
 import 'theme.dart';
 
 /// The "how did they play?" block of the new-match screen: every player of both
@@ -73,12 +74,7 @@ class _RatingsCardState extends State<RatingsCard> {
     widget.onChanged();
   }
 
-  Color _color(double r) {
-    if (r >= 8.5) return const Color(0xFFFFD166);
-    if (r >= 7) return const Color(0xFF9BE564);
-    if (r < 5) return AppColors.error;
-    return AppColors.text;
-  }
+  Color _color(double r) => markColor(r);
 
   Widget _row(MatchMark m) {
     final played = m.played;

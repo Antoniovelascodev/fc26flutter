@@ -18,6 +18,10 @@ Color ratingColor(int overall) {
   return const Color(0xFFF2463C);
 }
 
+/// Color of a match mark (0-10): same scale as the attributes, as if it were out of 100
+/// (<6 red, 6 yellow, 7-8 green, 8.1+ deep green, 9+ neon).
+Color markColor(double mark) => ratingColor((mark * 10).round());
+
 /// Official portrait of a player (same CDN and ids as the EA ratings site).
 /// Players that are not there get their initials instead.
 String playerPhotoUrl(int playerId) => demoMode

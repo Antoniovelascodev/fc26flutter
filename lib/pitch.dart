@@ -16,6 +16,9 @@ class Pitch extends StatelessWidget {
   /// Optional small text under a player's name (e.g. his rating), by slot.
   final Map<int, String> tags;
 
+  /// Color of each tag by slot (default gold).
+  final Map<int, Color> tagColors;
+
   /// When set, a player can be dragged (long press) onto another place to swap them.
   final void Function(int from, int to)? onSwap;
 
@@ -25,6 +28,7 @@ class Pitch extends StatelessWidget {
     required this.slots,
     this.onTap,
     this.tags = const {},
+    this.tagColors = const {},
     this.onSwap,
   });
 
@@ -65,6 +69,7 @@ class Pitch extends StatelessWidget {
                       position: formation.slots[i].position,
                       player: slots[i],
                       tag: tags[i],
+                      tagColor: tagColors[i],
                       onTap: onTap == null ? null : () => onTap!(i),
                     ),
                   ),
@@ -81,6 +86,7 @@ class _PitchSlot extends StatelessWidget {
   final String position;
   final Player? player;
   final String? tag;
+  final Color? tagColor;
   final VoidCallback? onTap;
 
   const _PitchSlot({
@@ -88,6 +94,7 @@ class _PitchSlot extends StatelessWidget {
     required this.player,
     required this.onTap,
     this.tag,
+    this.tagColor,
   });
 
   @override
@@ -152,13 +159,11 @@ class _PitchSlot extends StatelessWidget {
             ),
           ),
           if (tag != null)
-
             Text(tag!,
-
-                style: const TextStyle(
-
-                    fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFFFFD166))),
-
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: tagColor ?? const Color(0xFFFFD166))),
         ],
       ),
     );
