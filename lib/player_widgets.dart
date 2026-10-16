@@ -683,11 +683,11 @@ class _PlayerPickerState extends State<_PlayerPicker> {
         final owned = inSquad || widget.takenIds.contains(p.id);
         final overBudget =
             widget.maxValueEur != null && (p.valueEur ?? 0) > widget.maxValueEur!;
-        final blocked = owned || overBudget;
+        // Going over the budget is allowed while building (you can fix it before saving).
         return PlayerTile(
           player: p,
           note: inSquad ? 'In squad' : (owned ? 'Taken' : (overBudget ? 'Over budget' : null)),
-          onTap: blocked ? null : () => Navigator.pop(context, p),
+          onTap: owned ? null : () => Navigator.pop(context, p),
         );
       },
     );

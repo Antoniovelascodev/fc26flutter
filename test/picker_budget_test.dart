@@ -31,5 +31,9 @@ void main() {
     // ... with no price filter applied (no filter badge) and the budget shown.
     expect(find.textContaining('budget left 0M'), findsOneWidget);
     expect(find.text('Over budget'), findsWidgets);
+
+    // Over budget is only a warning: the player can still be chosen.
+    final tile = tester.widget<PlayerTile>(find.byType(PlayerTile).first);
+    expect(tile.onTap, isNotNull);
   });
 }

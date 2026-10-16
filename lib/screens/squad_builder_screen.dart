@@ -469,7 +469,7 @@ class _SummaryRow extends StatelessWidget {
 
   const _SummaryRow({required this.squad, this.budgetMillions});
 
-  Widget _box(String label, String value) => Expanded(
+  Widget _box(String label, String value, {Color? color}) => Expanded(
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
@@ -478,7 +478,7 @@ class _SummaryRow extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Text(value, style: displayStyle(size: 26)),
+              Text(value, style: displayStyle(size: 26, color: color ?? AppColors.text)),
               const SizedBox(height: 2),
               Text(label, style: const TextStyle(color: AppColors.textDim, fontSize: 11)),
             ],
@@ -494,7 +494,10 @@ class _SummaryRow extends StatelessWidget {
         _box('XI OVR', starters == 0 ? '-' : squad.averageOverall.toStringAsFixed(1)),
         const SizedBox(width: 8),
         _box(budgetMillions == null ? 'Squad value' : 'of ${budgetMillions}M budget',
-            formatValue(squad.totalValue)),
+            formatValue(squad.totalValue),
+            color: budgetMillions != null && squad.totalValue > budgetMillions! * 1000000
+                ? AppColors.error
+                : null),
         const SizedBox(width: 8),
         _box('Avg age', squad.slots.isEmpty ? '-' : squad.averageAge.toStringAsFixed(1)),
         const SizedBox(width: 8),
