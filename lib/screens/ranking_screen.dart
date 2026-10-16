@@ -5,6 +5,8 @@ import '../async_view.dart';
 import '../best_xi.dart';
 import '../stats_widgets.dart';
 import '../models.dart';
+import '../stats_calc.dart';
+import 'stats_screen.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -25,11 +27,13 @@ class RankingScreen extends StatefulWidget {
 class _RankingScreenState extends State<RankingScreen> {
   late Future<List<RankingEntry>> _future;
   List<RankingEntry>? _cached;
+  Map<String, List<String>> _form = {};
 
   @override
   void initState() {
     super.initState();
     _future = Api.ranking();
+    _loadForm();
     Api.cachedRanking().then((c) {
       if (mounted) setState(() => _cached = c);
     });
@@ -42,11 +46,22 @@ class _RankingScreenState extends State<RankingScreen> {
     super.dispose();
   }
 
+  /// Last 5 results of every team; the table works without it if it fails.
+  Future<void> _loadForm() async {
+    try {
+      final matches = await Api.allMatches();
+      if (mounted) setState(() => _form = formByTeam(matches));
+    } catch (_) {
+      // Only a decoration.
+    }
+  }
+
   void _reload() {
     if (!mounted) return;
     setState(() {
       _future = Api.ranking();
     });
+    _loadForm();
   }
 
   Future<void> _onRefresh() async {
@@ -101,11 +116,11 @@ class _RankingScreenState extends State<RankingScreen> {
                     children: [
                       _LeaderCard(entry: entries.first),
                       const SizedBox(height: 12),
-                      LeagueTable(entries: entries),
+                      LeagueTable(entries: entries, form: _form),
                       const Padding(
                         padding: EdgeInsets.fromLTRB(10, 14, 10, 0),
                         child: Text(
-                          'P played · W won · D drawn · L lost · GF goals for · GA goals against · GD goal difference',
+                          'P played · W won · D drawn · L lost · GF goals for · GA goals against · GD goal difference · dots = last 5 results (green win, grey draw, red loss)',
                           style: TextStyle(fontSize: 12, color: AppColors.textDim, height: 1.4),
                         ),
                       ),
@@ -128,7 +143,10 @@ class _RankingScreenState extends State<RankingScreen> {
 class LeagueTable extends StatelessWidget {
   final List<RankingEntry> entries;
 
-  const LeagueTable({super.key, required this.entries});
+  /// Last results by team name (optional).
+  final Map<String, List<String>> form;
+
+  const LeagueTable({super.key, required this.entries, this.form = const {}});
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +161,7 @@ class LeagueTable extends StatelessWidget {
           const _HeaderRow(),
           for (var i = 0; i < entries.length; i++) ...[
             const Divider(height: 1),
-            _DataRow(position: i + 1, entry: entries[i]),
+            _DataRow(position: i + 1, entry: entries[i], form: form[entries[i].teamName] ?? const []),
           ],
         ],
       ),
@@ -197,7 +215,9 @@ class _DataRow extends StatelessWidget {
   final int position;
   final RankingEntry entry;
 
-  const _DataRow({required this.position, required this.entry});
+  final List<String> form;
+
+  const _DataRow({required this.position, required this.entry, this.form = const []});
 
   Widget _num(Object value, double width, {Color color = AppColors.text}) {
     return SizedBox(
@@ -259,11 +279,20 @@ class _DataRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(
-              entry.teamName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: displayStyle(size: 25),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.teamName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: displayStyle(size: 25),
+                ),
+                if (form.isNotEmpty) Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: FormDots(form, size: 7),
+                ),
+              ],
             ),
           ),
           _num(entry.matchesPlayed, _wStat),

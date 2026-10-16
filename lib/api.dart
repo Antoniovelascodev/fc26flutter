@@ -424,6 +424,13 @@ class Api {
     return list;
   }
 
+  /// Every match of every league (for form and records).
+  static Future<List<MatchItem>> allMatches() async {
+    final leagues = await Api.leagues();
+    final lists = await Future.wait(leagues.map((l) => matchesByLeague(l.id)));
+    return [for (final l in lists) ...l];
+  }
+
   static Future<HeadToHead> headToHead(int team1Id, int team2Id) async {
     if (demoMode) {
       await _latency();

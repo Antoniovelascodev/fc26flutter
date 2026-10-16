@@ -10,6 +10,7 @@ import 'screens/league_screen.dart';
 import 'screens/new_match_screen.dart';
 import 'screens/ranking_screen.dart';
 import 'screens/squads_screen.dart';
+import 'screens/stats_screen.dart';
 import 'theme.dart';
 
 Future<void> main() async {
@@ -111,6 +112,7 @@ class _HomeShellState extends State<HomeShell> {
     () => const LeagueScreen(),
     () => const SquadsScreen(),
     () => const PlayersScreen(),
+    () => const StatsScreen(),
   ];
 
   static const _titles = [
@@ -120,6 +122,7 @@ class _HomeShellState extends State<HomeShell> {
     'Leagues',
     'Squads',
     'Players',
+    'Stats & records',
   ];
 
   Future<void> _editKey() async {
@@ -387,6 +390,7 @@ class _HomeShellState extends State<HomeShell> {
             item(3, Icons.emoji_events, 'Leagues'),
             item(4, Icons.groups, 'Squads'),
             item(5, Icons.person_search, 'Players'),
+            item(6, Icons.insights, 'Stats & records'),
             item(2, Icons.compare_arrows, 'Head to head'),
             if (!demoMode) ...[
               const Padding(
