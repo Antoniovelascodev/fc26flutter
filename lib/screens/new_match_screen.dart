@@ -28,6 +28,7 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
   int _homeGoals = 0;
   int _awayGoals = 0;
   final List<ScorerInput> _scorers = [];
+  final Map<int, int> _ownGoals = {}; // team id -> goals scored by the opponent (nobody gets them)
   final List<MatchMark> _marks = [];
   int _marksReset = 0;
 
@@ -78,8 +79,18 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
   /// Keeps the scorers consistent with the teams and goals on screen.
   void _syncScorers() {
     _scorers.removeWhere((s) => s.teamId != _homeId && s.teamId != _awayId);
+    _ownGoals.removeWhere((id, _) => id != _homeId && id != _awayId);
     for (final teamId in [_homeId, _awayId]) {
       final goals = teamId == _homeId ? _homeGoals : _awayGoals;
+      // Own goals go first when the score goes down.
+      final own = _ownGoals[teamId] ?? 0;
+      if (own > goals) {
+        if (goals == 0) {
+          _ownGoals.remove(teamId);
+        } else {
+          _ownGoals[teamId!] = goals;
+        }
+      }
       var total = _scorers.where((s) => s.teamId == teamId).fold<int>(0, (a, s) => a + s.goals);
       for (final s in _scorers.where((s) => s.teamId == teamId).toList().reversed) {
         while (total > goals && s.goals > 0) {
@@ -137,6 +148,16 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
     if (home == null || away == null) return _toast('Choose both teams');
     final hg = _homeGoals;
     final ag = _awayGoals;
+    for (final side in [(home, hg), (away, ag)]) {
+      final assigned =
+          _scorers.where((s) => s.teamId == side.$1.id).fold<int>(0, (a, s) => a + s.goals) +
+              (_ownGoals[side.$1.id] ?? 0);
+      if (assigned < side.$2) {
+        final missing = side.$2 - assigned;
+        return _toast('Say who scored for ${side.$1.name}: $missing '
+            '${missing == 1 ? 'goal' : 'goals'} left (add a scorer or mark an own goal).');
+      }
+    }
 
     setState(() => _saving = true);
     try {
@@ -154,6 +175,7 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
         _homeGoals = 0;
         _awayGoals = 0;
         _scorers.clear();
+        _ownGoals.clear();
         _marks.clear();
         _marksReset++; // makes the marks card load a fresh 6 for everybody
       });
@@ -262,6 +284,7 @@ class _NewMatchScreenState extends State<NewMatchScreen> {
             awayGoals: _awayGoals,
             leagueId: _leagueId,
             scorers: _scorers,
+            ownGoals: _ownGoals,
             onChanged: () => setState(() {}),
           ),
         if (home != null && away != null)

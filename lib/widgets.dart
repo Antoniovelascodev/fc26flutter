@@ -344,9 +344,9 @@ class MatchStrip extends StatelessWidget {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(child: _Scorers(match.goalsOf(match.homeTeamName), TextAlign.right)),
+                          Expanded(child: _Scorers(match.goalsOf(match.homeTeamName), TextAlign.right, ownGoals: _own(match, match.homeTeamName, match.homeGoals))),
                           const SizedBox(width: 40),
-                          Expanded(child: _Scorers(match.goalsOf(match.awayTeamName), TextAlign.left)),
+                          Expanded(child: _Scorers(match.goalsOf(match.awayTeamName), TextAlign.left, ownGoals: _own(match, match.awayTeamName, match.awayGoals))),
                         ],
                       ),
                     ],
@@ -394,19 +394,27 @@ class MatchStrip extends StatelessWidget {
   }
 }
 
+/// Goals of a team that no scorer got: own goals of the opponent (only when scorers were recorded).
+int _own(MatchItem match, String team, int score) {
+  final scored = match.goalsOf(team).fold<int>(0, (a, g) => a + g.goals);
+  return (match.goals.isNotEmpty && score > scored) ? score - scored : 0;
+}
+
 /// "Mbappé 2, Vinicius" under a match score.
 class _Scorers extends StatelessWidget {
   final List<GoalItem> goals;
   final TextAlign align;
+  final int ownGoals;
 
-  const _Scorers(this.goals, this.align);
+  const _Scorers(this.goals, this.align, {this.ownGoals = 0});
 
   @override
   Widget build(BuildContext context) {
-    if (goals.isEmpty) return const SizedBox.shrink();
-    final text = goals
-        .map((g) => g.goals > 1 ? '${g.playerName} ${g.goals}' : g.playerName)
-        .join(', ');
+    if (goals.isEmpty && ownGoals == 0) return const SizedBox.shrink();
+    final text = [
+      ...goals.map((g) => g.goals > 1 ? '${g.playerName} ${g.goals}' : g.playerName),
+      if (ownGoals > 0) ownGoals > 1 ? 'own goals $ownGoals' : 'own goal',
+    ].join(', ');
     return Text(
       '⚽ $text',
       textAlign: align,

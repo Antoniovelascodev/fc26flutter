@@ -5,8 +5,9 @@ import 'models.dart';
 import 'player_widgets.dart';
 import 'theme.dart';
 
-/// Optional "who scored?" block of the new-match screen. It edits [scorers] in
-/// place and calls [onChanged] after every change.
+/// "Who scored?" block of the new-match screen (required: every goal is a scorer or an
+/// own goal). It edits [scorers] and [ownGoals] (team id -> goals of that team that were
+/// scored by the opponent, so nobody gets them) in place and calls [onChanged] after every change.
 class ScorersCard extends StatelessWidget {
   final Team home;
   final Team away;
@@ -14,6 +15,7 @@ class ScorersCard extends StatelessWidget {
   final int awayGoals;
   final int? leagueId;
   final List<ScorerInput> scorers;
+  final Map<int, int> ownGoals;
   final VoidCallback onChanged;
 
   const ScorersCard({
@@ -24,12 +26,13 @@ class ScorersCard extends StatelessWidget {
     required this.awayGoals,
     required this.leagueId,
     required this.scorers,
+    required this.ownGoals,
     required this.onChanged,
   });
 
-  int _scored(int teamId) => scorers
-      .where((s) => s.teamId == teamId)
-      .fold<int>(0, (a, s) => a + s.goals);
+  int _scored(int teamId) =>
+      scorers.where((s) => s.teamId == teamId).fold<int>(0, (a, s) => a + s.goals) +
+      (ownGoals[teamId] ?? 0);
 
   Future<void> _add(BuildContext context, Team team) async {
     final player = await _choosePlayer(context, team);
@@ -101,6 +104,7 @@ class ScorersCard extends StatelessWidget {
     if (goals == 0) return const SizedBox.shrink();
     final mine = scorers.where((s) => s.teamId == team.id).toList();
     final scored = _scored(team.id);
+    final own = ownGoals[team.id] ?? 0;
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Column(
@@ -120,7 +124,10 @@ class ScorersCard extends StatelessWidget {
               Text(team.name, style: displayStyle(size: 22)),
               const Spacer(),
               Text('$scored / $goals',
-                  style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+                  style: TextStyle(
+                      color: scored == goals ? AppColors.text : const Color(0xFFFFC83D),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12)),
             ],
           ),
           for (final s in mine)
@@ -159,14 +166,62 @@ class ScorersCard extends StatelessWidget {
                 ),
               ],
             ),
+          if (own > 0)
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Own goal (by the opponent)',
+                      style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textDim)),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.remove_circle_outline, size: 20),
+                  onPressed: () {
+                    if (own <= 1) {
+                      ownGoals.remove(team.id);
+                    } else {
+                      ownGoals[team.id] = own - 1;
+                    }
+                    onChanged();
+                  },
+                ),
+                SizedBox(
+                  width: 22,
+                  child: Text('$own',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.add_circle_outline, size: 20),
+                  onPressed: scored >= goals
+                      ? null
+                      : () {
+                          ownGoals[team.id] = own + 1;
+                          onChanged();
+                        },
+                ),
+              ],
+            ),
           if (scored < goals)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () => _add(context, team),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add scorer'),
-              ),
+            Wrap(
+              spacing: 4,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _add(context, team),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add scorer'),
+                ),
+                if (own == 0)
+                  TextButton.icon(
+                    onPressed: () {
+                      ownGoals[team.id] = 1;
+                      onChanged();
+                    },
+                    icon: const Icon(Icons.undo, size: 18),
+                    label: const Text('Own goal'),
+                  ),
+              ],
             ),
         ],
       ),
@@ -185,10 +240,11 @@ class ScorersCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Who scored? (optional)', style: displayStyle(size: 24)),
+          Text('Who scored?', style: displayStyle(size: 24)),
           const SizedBox(height: 2),
           const Text(
-            'Only players from the squads of each team in this league. Leave it empty or add only the goals you know.',
+            'Required: assign every goal. Only players from the squads of each team in this league. '
+            'If it was an own goal, use "Own goal": it counts for the team but nobody gets it.',
             style: TextStyle(color: AppColors.textDim, fontSize: 12),
           ),
           _side(context, home, homeGoals),
