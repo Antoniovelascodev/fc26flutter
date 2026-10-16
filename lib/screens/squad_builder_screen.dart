@@ -273,9 +273,6 @@ class _SquadBuilderScreenState extends State<SquadBuilderScreen> {
 
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) return _toast('Give the squad a name');
-    if (_budget != null && _draft().totalValue > _budget! * 1000000) {
-      return _toast('The squad is over the league budget of ${_budget}M. Replace some players.');
-    }
     setState(() => _saving = true);
     try {
       await Api.saveSquad(_draft());

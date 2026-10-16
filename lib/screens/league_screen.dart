@@ -5,7 +5,6 @@ import '../async_view.dart';
 import '../best_xi.dart';
 import '../league_dialogs.dart';
 import '../models.dart';
-import '../pin_dialogs.dart';
 import '../player_widgets.dart';
 import '../stats_widgets.dart';
 import '../theme.dart';
@@ -473,8 +472,6 @@ class _TeamsTab extends StatelessWidget {
                 total: data.squads.where((s) => s.teamId == team.id).length,
                 onOpen: (squad) => _open(context, squad),
                 onCreate: () async {
-                  if (!await ensureTeamPin(context, team)) return;
-                  if (!context.mounted) return;
                   await _open(
                     context,
                     Squad(

@@ -492,7 +492,7 @@ class _PlayerPickerState extends State<_PlayerPicker> {
   int _request = 0;
 
   late String _position = widget.initialPosition;
-  // No price filter by default: the remaining budget is shown and enforced when picking.
+  // No price filter by default: the remaining budget is only shown (going over is allowed).
   PlayerFilters _filters = PlayerFilters();
   final List<Player> _players = [];
   int _page = 0;

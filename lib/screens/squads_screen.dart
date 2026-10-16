@@ -102,9 +102,6 @@ class _SquadsScreenState extends State<SquadsScreen> {
     final team = _team;
     final league = _league;
     if (team == null || league == null) return;
-    // Every team protects its squads with a PIN before creating the first one.
-    if (!await ensureTeamPin(context, team)) return;
-    if (!mounted) return;
     _open(Squad(
       leagueId: league.id,
       teamId: team.id,
@@ -157,16 +154,7 @@ class _SquadsScreenState extends State<SquadsScreen> {
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
                     avatar: CircleAvatar(radius: 6, backgroundColor: teamColor(t.name)),
-                    label: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(t.name),
-                        if (t.hasPin) ...[
-                          const SizedBox(width: 6),
-                          const Icon(Icons.lock, size: 14, color: AppColors.textDim),
-                        ],
-                      ],
-                    ),
+                    label: Text(t.name),
                     selected: t.id == _teamId,
                     showCheckmark: false,
                     selectedColor: teamWash(teamColor(t.name), strength: 90),
@@ -185,20 +173,7 @@ class _SquadsScreenState extends State<SquadsScreen> {
             ],
           ),
         ),
-        if (_team != null && _team!.hasPin && Api.pinOf(_team!.id) != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: TextButton.icon(
-                onPressed: () => changeTeamPin(context, _team!),
-                icon: const Icon(Icons.lock_outline, size: 16),
-                label: Text('Change PIN of ${_team!.name}'),
-              ),
-            ),
-          )
-        else
-          const SizedBox(height: 14),
+        const SizedBox(height: 14),
         Expanded(
           child: FutureBuilder<List<Squad>>(
             future: _squads,
