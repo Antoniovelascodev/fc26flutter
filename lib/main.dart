@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,6 +16,8 @@ import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Test builds only (--dart-define=SEMANTICS=true): exposes the accessibility tree so a browser can be driven reliably.
+  if (const bool.fromEnvironment('SEMANTICS')) SemanticsBinding.instance.ensureSemantics();
   await Api.loadKey();
   Api.warmUp(); // not awaited: just wakes the server up while the UI loads
   runApp(const MegaLigueApp());

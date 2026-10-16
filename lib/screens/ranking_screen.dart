@@ -82,10 +82,13 @@ class _RankingScreenState extends State<RankingScreen> {
         if (loading && (_cached == null || _cached!.isEmpty)) {
           return const SkeletonList(rows: 4);
         }
-        if (!loading && snap.hasError) {
+        final failed = !loading && snap.hasError;
+        final hasCache = _cached != null && _cached!.isNotEmpty;
+        if (failed && !hasCache) {
           return ErrorView(error: snap.error!, onRetry: _reload);
         }
-        final entries = loading ? _cached! : snap.data!;
+        // Server unreachable but we know the last table: keep showing it, with a notice.
+        final entries = (loading || failed) ? _cached! : snap.data!;
         if (entries.isEmpty) {
           return const EmptyView(
             title: 'No results yet',
@@ -99,6 +102,26 @@ class _RankingScreenState extends State<RankingScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
             children: [
+              if (failed)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceHi,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.cloud_off, size: 18, color: AppColors.textDim),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text("Can't reach the server. Showing the last known table.",
+                            style: TextStyle(fontSize: 12, color: AppColors.textDim)),
+                      ),
+                      TextButton(onPressed: _reload, child: const Text('Retry')),
+                    ],
+                  ),
+                ),
               if (loading)
                 const Padding(
                   padding: EdgeInsets.only(bottom: 8),
