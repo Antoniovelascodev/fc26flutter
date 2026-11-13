@@ -350,11 +350,18 @@ class _MegaStats extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('Top scorers', hint: 'All leagues together'),
         AsyncView<List<ScorerRow>>(
           compact: true,
           load: () => Api.topScorers(),
-          builder: (context, rows) => ScorerList(rows: rows),
+          builder: (context, rows) => rows.isEmpty
+              ? const SizedBox.shrink()
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionTitle('Top scorers', hint: 'All leagues together'),
+                    ScorerList(rows: rows),
+                  ],
+                ),
         ),
         const SectionTitle('Most used players', hint: 'In the active squads of every league'),
         AsyncView<List<MostUsedRow>>(

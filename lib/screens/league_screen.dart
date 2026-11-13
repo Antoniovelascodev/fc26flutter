@@ -592,12 +592,19 @@ class _StatsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
       children: [
-        const SectionTitle('Top scorers'),
         AsyncView<List<ScorerRow>>(
           key: ValueKey('scorers-$leagueId'),
           compact: true,
           load: () => Api.topScorers(leagueId: leagueId),
-          builder: (context, rows) => ScorerList(rows: rows, limit: 15),
+          builder: (context, rows) => rows.isEmpty
+              ? const SizedBox.shrink()
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionTitle('Top scorers'),
+                    ScorerList(rows: rows, limit: 15),
+                  ],
+                ),
         ),
         const SectionTitle('Most used players',
             hint: 'Players in the active squads of this league'),

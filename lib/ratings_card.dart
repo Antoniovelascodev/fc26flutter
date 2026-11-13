@@ -219,8 +219,8 @@ class _RatingsCardState extends State<RatingsCard> {
                 Text('How did they play?', style: displayStyle(size: 24)),
                 const SizedBox(height: 2),
                 const Text(
-                  'Whoever watched the match marks the players. Everybody starts with a 6 '
-                  '(scorers get +1.5 automatically): only change those who stood out. The best XI is built from these marks. '
+                  'Whoever watched the match marks the players. Everybody starts with a 6: '
+                  'only change those who stood out. The best XI is built from these marks. '
                   '✕ = did not play.',
                   style: TextStyle(color: AppColors.textDim, fontSize: 12, height: 1.4),
                 ),
